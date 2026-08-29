@@ -1,6 +1,21 @@
 import { openDb, DEFAULT_DB_PATH } from "./db/schema.js";
 import { loadRegistry, DEFAULT_REGISTRY_PATH } from "./sources/registry.js";
-import { upsertSource, listSources, countTables } from "./db/queries.js";
+import { upsertSource, listSources, countTables, recordPollResult, type SourceRow } from "./db/queries.js";
+import { adapters } from "./sources/adapters/index.js";
+import { applyPoll } from "./pipeline/upsert.js";
+import type { Market, Source } from "./sources/types.js";
+
+/** A `SourceRow` is a `Source` plus id/health columns — adapters only need the `Source` shape. */
+function toSource(row: SourceRow): Source {
+  return {
+    name: row.name,
+    market: row.market,
+    kind: row.kind,
+    url: row.url,
+    adapter: row.adapter,
+    active: row.active === 1,
+  };
+}
 
 const COMMANDS = ["init", "poll", "score", "digest"] as const;
 type Command = (typeof COMMANDS)[number];
@@ -72,11 +87,61 @@ export function runInit(
   }
 }
 
-/** Stub — Phase 2 (remote) and Phase 3 (Nepal) add real adapter fetch logic. */
-export function runPoll(flags: Record<string, string>): void {
-  console.log("poll: not implemented yet (Phase 2/3 add adapter fetch logic).");
-  if (flags.market) {
-    console.log(`  requested market: ${flags.market}`);
+function isMarket(value: string | undefined): value is Market {
+  return value === "nepal" || value === "remote";
+}
+
+/**
+ * Polls every active, adapter-implemented source (optionally filtered by
+ * `--market`), upserts its postings, and updates the source's poll-health
+ * columns. A source whose adapter throws is logged to `sources.last_error`
+ * and skipped — one broken source never aborts the whole poll. Nepal
+ * adapters land in Phase 3; until then, Nepal sources are reported as
+ * skipped rather than errored.
+ */
+export async function runPoll(
+  flags: Record<string, string>,
+  dbPath: string = DEFAULT_DB_PATH,
+): Promise<void> {
+  if (flags.market !== undefined && !isMarket(flags.market)) {
+    throw new Error(`Unknown market: ${flags.market}. Expected "nepal" or "remote".`);
+  }
+  const marketFilter = flags.market;
+
+  const db = openDb(dbPath);
+  try {
+    const sources = listSources(db).filter(
+      (s) => s.active === 1 && (!marketFilter || s.market === marketFilter),
+    );
+
+    let totalPostings = 0;
+    for (const source of sources) {
+      const adapter = adapters[source.adapter];
+      if (!adapter) {
+        console.log(`${source.name}: no adapter implemented yet, skipping`);
+        continue;
+      }
+
+      const polledAt = new Date().toISOString();
+      try {
+        const postings = await adapter.fetch(toSource(source));
+        const result = applyPoll(db, source.id, source.market, postings, polledAt);
+        recordPollResult(db, source.id, polledAt, postings.length, null);
+        totalPostings += postings.length;
+        console.log(
+          `${source.name}: ${postings.length} postings ` +
+            `(inserted ${result.inserted}, updated ${result.updated}, closed ${result.closed})`,
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        recordPollResult(db, source.id, polledAt, null, message);
+        console.log(`${source.name}: ERROR - ${message}`);
+      }
+    }
+
+    console.log(`Polled ${sources.length} source(s), ${totalPostings} total postings.`);
+  } finally {
+    db.close();
   }
 }
 
@@ -90,14 +155,14 @@ export function runDigest(): void {
   console.log("digest: not implemented yet (Phase 5 adds the digest writer).");
 }
 
-export function main(argv: string[] = process.argv.slice(2)): void {
+export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   const { command, flags } = parseArgs(argv);
   switch (command) {
     case "init":
       runInit();
       break;
     case "poll":
-      runPoll(flags);
+      await runPoll(flags);
       break;
     case "score":
       runScore();
@@ -111,7 +176,7 @@ export function main(argv: string[] = process.argv.slice(2)): void {
 const isMainModule = import.meta.url === `file://${process.argv[1]}`;
 if (isMainModule) {
   try {
-    main();
+    await main();
   } catch (err) {
     console.error(err instanceof Error ? err.message : err);
     process.exit(1);
