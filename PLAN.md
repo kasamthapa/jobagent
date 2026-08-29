@@ -51,7 +51,7 @@ No web framework. No ORM. No frontend. No vector DB. No Docker (yet).
 
 ## Phase 1 — Scaffold
 
-Status: todo
+Status: done
 
 Goal: repo skeleton, DB schema, source registry, CLI entrypoint.
 
