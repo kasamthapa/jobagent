@@ -1,0 +1,28 @@
+{
+  "name": "jobagent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Personal CLI that finds junior/entry full-stack developer roles across Nepal and remote markets, scores them against a fixed profile, and emits a ranked markdown digest.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "cli": "tsx src/cli.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "cheerio": "^1.2.0",
+    "zod": "^4.5.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.4.0",
+    "tsx": "^4.23.12",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  }
+}
