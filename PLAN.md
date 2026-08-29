@@ -138,7 +138,7 @@ with all four tables and sources.json loaded.
 
 ## Phase 2 — Remote adapters
 
-Status: todo
+Status: done
 
 Goal: working ingestion from the remote JSON/RSS sources.
 
