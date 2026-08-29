@@ -1,0 +1,40 @@
+{
+  "jobs": [
+    {
+      "guid": "https://himalayas.app/companies/acme/jobs/junior-fullstack-engineer",
+      "title": "Junior Fullstack Engineer",
+      "description": "<p>Fully remote, worldwide, no location restriction.</p>",
+      "companyName": "Acme",
+      "applicationLink": "https://himalayas.app/companies/acme/jobs/junior-fullstack-engineer",
+      "pubDate": 1755000000,
+      "locationRestrictions": [],
+      "timezoneRestrictions": [],
+      "minSalary": 30000,
+      "maxSalary": 45000,
+      "currency": "USD"
+    },
+    {
+      "guid": "https://himalayas.app/companies/beta/jobs/senior-backend-engineer",
+      "title": "Senior Backend Engineer",
+      "description": "<p>US-based team, US applicants only.</p>",
+      "companyName": "Beta",
+      "applicationLink": "https://himalayas.app/companies/beta/jobs/senior-backend-engineer",
+      "pubDate": 1755000000,
+      "locationRestrictions": ["United States"],
+      "timezoneRestrictions": [-8, -5]
+    },
+    {
+      "guid": "https://himalayas.app/companies/gamma/jobs/support-engineer",
+      "title": "Support Engineer",
+      "description": "<p>Salary not disclosed.</p>",
+      "companyName": "Gamma",
+      "applicationLink": "https://himalayas.app/companies/gamma/jobs/support-engineer",
+      "pubDate": 1755000000,
+      "locationRestrictions": [],
+      "timezoneRestrictions": [],
+      "minSalary": null,
+      "maxSalary": null,
+      "currency": null
+    }
+  ]
+}

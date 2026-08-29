@@ -1,0 +1,30 @@
+{
+  "data": [
+    {
+      "slug": "junior-fullstack-developer-berlin-startup",
+      "company_name": "Berlin Startup",
+      "title": "Junior Fullstack Developer",
+      "description": "<p>Node + React role, fully remote worldwide.</p>",
+      "remote": true,
+      "url": "https://www.arbeitnow.com/jobs/companies/berlin-startup/junior-fullstack-developer-berlin-startup",
+      "tags": ["node", "react"],
+      "job_types": ["Full time"],
+      "location": "",
+      "created_at": 1755000000
+    },
+    {
+      "slug": "office-administrator-munich-gmbh",
+      "company_name": "Munich GmbH",
+      "title": "Office Administrator",
+      "description": "<p>On-site office role in Munich.</p>",
+      "remote": false,
+      "url": "https://www.arbeitnow.com/jobs/companies/munich-gmbh/office-administrator-munich-gmbh",
+      "tags": [],
+      "job_types": ["Full time"],
+      "location": "Munich, Germany",
+      "created_at": 1755000000
+    }
+  ],
+  "links": { "first": null, "last": null, "next": null, "prev": null },
+  "meta": { "current_page": 1 }
+}

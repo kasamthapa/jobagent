@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss">
+  <channel>
+    <title>We Work Remotely: Remote programming jobs</title>
+    <link>https://weworkremotely.com/categories/remote-programming-jobs.rss</link>
+    <description>We Work Remotely: Remote jobs in programming</description>
+    <language>en-US</language>
+    <ttl>60</ttl>
+    <item>
+      <title>Acme Corp: Junior Full-Stack Developer</title>
+      <region>Anywhere in the World</region>
+      <category>Full-Stack Programming</category>
+      <description><![CDATA[<p>Join our small remote team building web apps.</p>]]></description>
+      <pubDate>Wed, 12 Aug 2026 07:30:59 +0000</pubDate>
+      <guid>https://weworkremotely.com/remote-jobs/acme-corp-junior-full-stack-developer</guid>
+      <link>https://weworkremotely.com/remote-jobs/acme-corp-junior-full-stack-developer</link>
+    </item>
+    <item>
+      <title>Beta Inc: Senior Backend Engineer</title>
+      <region>USA Only</region>
+      <category>Back-End Programming</category>
+      <description><![CDATA[<p>US-based, on-call rotation required.</p>]]></description>
+      <pubDate>Tue, 11 Aug 2026 12:58:39 +0000</pubDate>
+      <guid>https://weworkremotely.com/remote-jobs/beta-inc-senior-backend-engineer</guid>
+      <link>https://weworkremotely.com/remote-jobs/beta-inc-senior-backend-engineer</link>
+    </item>
+  </channel>
+</rss>

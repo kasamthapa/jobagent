@@ -1,0 +1,29 @@
+[
+  {
+    "legal": "Legal warning - by using this API you agree to link back to RemoteOK and not resell this data."
+  },
+  {
+    "id": "998877",
+    "slug": "junior-node-developer",
+    "position": "Junior Node Developer",
+    "company": "RemoteCo",
+    "tags": ["node", "javascript"],
+    "description": "<p>Build APIs with Node.js and Express.</p>",
+    "url": "https://remoteok.com/remote-jobs/998877-junior-node-developer",
+    "location": "Worldwide",
+    "salary_min": 40000,
+    "salary_max": 60000,
+    "date": "2026-08-15T00:00:00+00:00"
+  },
+  {
+    "id": "998878",
+    "slug": "senior-platform-engineer",
+    "position": "Senior Platform Engineer",
+    "company": "BigCo",
+    "tags": ["kubernetes", "go"],
+    "description": "<p>Own platform infra for a US-based team.</p>",
+    "url": "https://remoteok.com/remote-jobs/998878-senior-platform-engineer",
+    "location": "USA Only",
+    "date": "2026-08-14T00:00:00+00:00"
+  }
+]

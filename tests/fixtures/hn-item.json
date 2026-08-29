@@ -1,0 +1,39 @@
+{
+  "id": 49156683,
+  "title": "Ask HN: Who is hiring? (August 2026)",
+  "children": [
+    {
+      "id": 49156700,
+      "author": "acme_hr",
+      "text": "Acme Corp | Remote (Worldwide) | Full-Stack Developer (Junior)<p>We are looking for a junior full-stack developer to join our small team.</p>",
+      "created_at": "2026-08-03T16:00:00.000Z",
+      "type": "comment",
+      "children": []
+    },
+    {
+      "id": 49156701,
+      "author": null,
+      "text": null,
+      "created_at": "2026-08-03T16:05:00.000Z",
+      "type": "comment",
+      "children": []
+    },
+    {
+      "id": 49156702,
+      "author": "someone_replying",
+      "text": "Is this remote-friendly?",
+      "created_at": "2026-08-03T16:10:00.000Z",
+      "type": "comment",
+      "children": [
+        {
+          "id": 49156703,
+          "author": "acme_hr",
+          "text": "Yes, fully remote.",
+          "created_at": "2026-08-03T16:15:00.000Z",
+          "type": "comment",
+          "children": []
+        }
+      ]
+    }
+  ]
+}

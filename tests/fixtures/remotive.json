@@ -1,0 +1,29 @@
+{
+  "job-count": 2,
+  "jobs": [
+    {
+      "id": 111,
+      "url": "https://remotive.com/remote-jobs/software-dev/junior-react-developer-111",
+      "title": "Junior React Developer",
+      "company_name": "Acme Remote",
+      "category": "Software Development",
+      "job_type": "full_time",
+      "publication_date": "2026-08-20T10:00:00",
+      "candidate_required_location": "Worldwide",
+      "salary": "",
+      "description": "<p>Build <strong>React</strong> apps with our small team.</p>"
+    },
+    {
+      "id": 112,
+      "url": "https://remotive.com/remote-jobs/software-dev/senior-backend-engineer-112",
+      "title": "Senior Backend Engineer",
+      "company_name": "Beta Corp",
+      "category": "Software Development",
+      "job_type": "full_time",
+      "publication_date": "2026-08-19T09:00:00",
+      "candidate_required_location": "USA Only",
+      "salary": "$120,000 - $150,000",
+      "description": "<p>Own the backend for our flagship product.</p>"
+    }
+  ]
+}
