@@ -164,6 +164,32 @@ export function closeStalePostings(
   return info.changes;
 }
 
+export interface PostingRow {
+  id: number;
+  source_id: number;
+  company_id: number | null;
+  external_id: string;
+  title: string;
+  description: string | null;
+  url: string | null;
+  location: string | null;
+  location_policy: LocationPolicy;
+  timezone_requirement: string | null;
+  salary_text: string | null;
+  posted_at: string | null;
+  deadline: string | null;
+  first_seen_at: string;
+  last_seen_at: string;
+  is_open: 0 | 1;
+  content_hash: string;
+  dedupe_key: string;
+}
+
+/** Every currently-open posting. Used by the dedupe pipeline to group the same job across sources. */
+export function listOpenPostings(db: Database.Database): PostingRow[] {
+  return db.prepare(`SELECT * FROM postings WHERE is_open = 1`).all() as PostingRow[];
+}
+
 /** Row counts for every table, keyed by table name. Used by `cli.ts init` to report progress. */
 export function countTables(db: Database.Database): Record<(typeof TABLE_NAMES)[number], number> {
   const counts = {} as Record<(typeof TABLE_NAMES)[number], number>;

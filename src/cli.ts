@@ -1,8 +1,16 @@
 import { openDb, DEFAULT_DB_PATH } from "./db/schema.js";
 import { loadRegistry, DEFAULT_REGISTRY_PATH } from "./sources/registry.js";
-import { upsertSource, listSources, countTables, recordPollResult, type SourceRow } from "./db/queries.js";
+import {
+  upsertSource,
+  listSources,
+  countTables,
+  recordPollResult,
+  listOpenPostings,
+  type SourceRow,
+} from "./db/queries.js";
 import { adapters } from "./sources/adapters/index.js";
 import { applyPoll } from "./pipeline/upsert.js";
+import { computeDedupeGroups, countDuplicates } from "./pipeline/dedupe.js";
 import type { Market, Source } from "./sources/types.js";
 
 /** A `SourceRow` is a `Source` plus id/health columns — adapters only need the `Source` shape. */
@@ -95,9 +103,11 @@ function isMarket(value: string | undefined): value is Market {
  * Polls every active, adapter-implemented source (optionally filtered by
  * `--market`), upserts its postings, and updates the source's poll-health
  * columns. A source whose adapter throws is logged to `sources.last_error`
- * and skipped — one broken source never aborts the whole poll. Nepal
- * adapters land in Phase 3; until then, Nepal sources are reported as
- * skipped rather than errored.
+ * and skipped — one broken source never aborts the whole poll (this is the
+ * normal case for Nepal scrapers: a selector matching 0 elements is an
+ * error, not an empty result, and leaves previously-seen postings alone).
+ * Finishes by grouping every open posting by `dedupe_key` and printing how
+ * many collapsed as duplicates of the same job posted on multiple sources.
  */
 export async function runPoll(
   flags: Record<string, string>,
@@ -140,6 +150,14 @@ export async function runPoll(
     }
 
     console.log(`Polled ${sources.length} source(s), ${totalPostings} total postings.`);
+
+    const openPostings = listOpenPostings(db);
+    const groups = computeDedupeGroups(openPostings);
+    const duplicates = countDuplicates(groups);
+    console.log(
+      `Deduped ${openPostings.length} open posting(s) into ${groups.length} unique job(s) ` +
+        `(${duplicates} duplicate(s) collapsed).`,
+    );
   } finally {
     db.close();
   }
