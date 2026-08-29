@@ -65,7 +65,7 @@ run_one() {
   before_tests=$(test_count)
   before_sha=$(git rev-parse HEAD 2>/dev/null || echo "none")
 
-  gtimeout --signal=INT "$PHASE_TIMEOUT" \
+  timeout --signal=INT "$PHASE_TIMEOUT" \
   claude -p "Read PLAN.md. Implement the lowest-numbered phase whose Status \
 is 'todo', following every rule in 'Rules for every phase'. Run the phase \
 gate yourself. If it fails 3 times, STOP, write logs/blocked-${num}.md, and \
