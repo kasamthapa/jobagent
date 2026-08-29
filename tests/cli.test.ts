@@ -119,7 +119,14 @@ describe("runPoll", () => {
 
   it("skips sources whose adapter isn't implemented yet, without hitting the network", async () => {
     const { dbPath, registryPath } = writeRegistry([
-      { name: "merojob", market: "nepal", kind: "portal", url: "https://merojob.test", adapter: "merojob", active: true },
+      {
+        name: "future-portal",
+        market: "nepal",
+        kind: "portal",
+        url: "https://future-portal.test",
+        adapter: "future-portal",
+        active: true,
+      },
     ]);
     runInit(dbPath, registryPath);
     const fetchSpy = vi.fn();

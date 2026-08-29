@@ -10,6 +10,7 @@ import {
   getOrCreateCompany,
   upsertPosting,
   closeStalePostings,
+  listOpenPostings,
   type PostingUpsert,
 } from "../../src/db/queries.js";
 import type { Source } from "../../src/sources/types.js";
@@ -190,5 +191,53 @@ describe("upsertPosting / closeStalePostings", () => {
     upsertPosting(db, posting({ externalId: "b" }));
     const closed = closeStalePostings(db, sourceId, []);
     expect(closed).toBe(2);
+  });
+});
+
+describe("listOpenPostings", () => {
+  it("returns only postings with is_open = 1", () => {
+    const db = new Database(":memory:");
+    createSchema(db);
+    upsertSource(db, remotive);
+    const sourceId = getSourceByName(db, "remotive")!.id;
+
+    upsertPosting(db, {
+      sourceId,
+      companyId: null,
+      externalId: "open",
+      title: "Open Posting",
+      description: "d",
+      url: "https://example.test/open",
+      location: null,
+      locationPolicy: "worldwide",
+      timezoneRequirement: null,
+      salaryText: null,
+      postedAt: null,
+      deadline: null,
+      contentHash: "h1",
+      dedupeKey: "acme::open",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    closeStalePostings(db, sourceId, []); // closes the row just inserted
+    upsertPosting(db, {
+      sourceId,
+      companyId: null,
+      externalId: "still-open",
+      title: "Still Open Posting",
+      description: "d",
+      url: "https://example.test/still-open",
+      location: null,
+      locationPolicy: "worldwide",
+      timezoneRequirement: null,
+      salaryText: null,
+      postedAt: null,
+      deadline: null,
+      contentHash: "h2",
+      dedupeKey: "acme::still-open",
+      now: "2026-01-01T00:00:00.000Z",
+    });
+
+    const open = listOpenPostings(db);
+    expect(open.map((p) => p.external_id)).toEqual(["still-open"]);
   });
 });
