@@ -1,0 +1,210 @@
+[
+  {
+    "name": "remotive",
+    "market": "remote",
+    "kind": "api",
+    "url": "https://remotive.com/api/remote-jobs?category=software-dev",
+    "adapter": "remotive",
+    "active": true
+  },
+  {
+    "name": "arbeitnow",
+    "market": "remote",
+    "kind": "api",
+    "url": "https://www.arbeitnow.com/api/job-board-api",
+    "adapter": "arbeitnow",
+    "active": true
+  },
+  {
+    "name": "remoteok",
+    "market": "remote",
+    "kind": "api",
+    "url": "https://remoteok.com/api",
+    "adapter": "remoteok",
+    "active": true
+  },
+  {
+    "name": "himalayas",
+    "market": "remote",
+    "kind": "api",
+    "url": "https://himalayas.app/jobs/api",
+    "adapter": "himalayas",
+    "active": true
+  },
+  {
+    "name": "weworkremotely",
+    "market": "remote",
+    "kind": "rss",
+    "url": "https://weworkremotely.com/categories/remote-programming-jobs.rss",
+    "adapter": "weworkremotely-rss",
+    "active": true
+  },
+  {
+    "name": "hn-whoishiring",
+    "market": "remote",
+    "kind": "api",
+    "url": "https://hn.algolia.com/api/v1/",
+    "adapter": "hn-algolia",
+    "active": true
+  },
+  {
+    "name": "merojob",
+    "market": "nepal",
+    "kind": "portal",
+    "url": "https://merojob.com/category/it-telecommunication",
+    "adapter": "merojob",
+    "active": true
+  },
+  {
+    "name": "kumarijob",
+    "market": "nepal",
+    "kind": "portal",
+    "url": "https://www.kumarijob.com/job-listing/it-jobs-in-nepal",
+    "adapter": "kumarijob",
+    "active": true
+  },
+  {
+    "name": "jobsnepal",
+    "market": "nepal",
+    "kind": "portal",
+    "url": "https://www.jobsnepal.com/category/information-technology-jobs",
+    "adapter": "jobsnepal",
+    "active": true
+  },
+  {
+    "name": "jobaxle",
+    "market": "nepal",
+    "kind": "portal",
+    "url": "https://jobaxle.com",
+    "adapter": "jobaxle",
+    "active": true
+  },
+  {
+    "name": "leapfrog-technology",
+    "market": "nepal",
+    "kind": "careers",
+    "url": "https://www.lftechnology.com/careers",
+    "adapter": "careers-generic",
+    "active": true
+  },
+  {
+    "name": "f1soft",
+    "market": "nepal",
+    "kind": "careers",
+    "url": "https://career.f1soft.com/",
+    "adapter": "careers-generic",
+    "active": true
+  },
+  {
+    "name": "fusemachines",
+    "market": "nepal",
+    "kind": "careers",
+    "url": "https://fusemachines.com/company/careers/",
+    "adapter": "careers-generic",
+    "active": true
+  },
+  {
+    "name": "cotiviti-nepal",
+    "market": "nepal",
+    "kind": "careers",
+    "url": null,
+    "adapter": "careers-generic",
+    "active": false
+  },
+  {
+    "name": "deerwalk",
+    "market": "nepal",
+    "kind": "careers",
+    "url": null,
+    "adapter": "careers-generic",
+    "active": false
+  },
+  {
+    "name": "cedar-gate",
+    "market": "nepal",
+    "kind": "careers",
+    "url": "https://www.cedargate.com/careers/",
+    "adapter": "careers-generic",
+    "active": true
+  },
+  {
+    "name": "verisk-nepal",
+    "market": "nepal",
+    "kind": "careers",
+    "url": "https://www.verisknepal.com.np/",
+    "adapter": "careers-generic",
+    "active": true
+  },
+  {
+    "name": "yarsa-labs",
+    "market": "nepal",
+    "kind": "careers",
+    "url": "https://www.yarsalabs.com/careers/",
+    "adapter": "careers-generic",
+    "active": true
+  },
+  {
+    "name": "docsumo",
+    "market": "nepal",
+    "kind": "careers",
+    "url": "https://www.docsumo.com/careers",
+    "adapter": "careers-generic",
+    "active": true
+  },
+  {
+    "name": "khalti",
+    "market": "nepal",
+    "kind": "careers",
+    "url": "https://blog.khalti.com/careers/",
+    "adapter": "careers-generic",
+    "active": true
+  },
+  {
+    "name": "esewa",
+    "market": "nepal",
+    "kind": "careers",
+    "url": "https://career.esewa.com.np/",
+    "adapter": "careers-generic",
+    "active": true
+  },
+  {
+    "name": "vairav",
+    "market": "nepal",
+    "kind": "careers",
+    "url": null,
+    "adapter": "careers-generic",
+    "active": false
+  },
+  {
+    "name": "rooster-logic",
+    "market": "nepal",
+    "kind": "careers",
+    "url": null,
+    "adapter": "careers-generic",
+    "active": false
+  },
+  {
+    "name": "young-innovations",
+    "market": "nepal",
+    "kind": "careers",
+    "url": "https://younginnovations.com.np/vacancy",
+    "adapter": "careers-generic",
+    "active": true
+  },
+  {
+    "name": "softnep",
+    "market": "nepal",
+    "kind": "careers",
+    "url": "https://www.softnep.com/career",
+    "adapter": "careers-generic",
+    "active": true
+  },
+  {
+    "name": "raralabs",
+    "market": "nepal",
+    "kind": "careers",
+    "url": "https://raralabs.com/career",
+    "adapter": "careers-generic",
+    "active": true
+  }
+]
