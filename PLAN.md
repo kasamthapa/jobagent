@@ -173,7 +173,7 @@ postings, and prints a per-source count summary.
 
 ## Phase 3 — Nepal adapters + dedupe
 
-Status: todo
+Status: done
 
 Goal: ingestion from Nepali portals and careers pages.
 
