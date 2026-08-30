@@ -200,7 +200,7 @@ prints a dedupe count.
 
 ## Phase 4 — Profile + scorer
 
-Status: todo
+Status: done
 
 Goal: score every unscored posting against the owner profile.
 
