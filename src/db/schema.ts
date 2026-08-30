@@ -75,15 +75,33 @@ export function createSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_postings_content_hash ON postings (content_hash);
 
     CREATE TABLE IF NOT EXISTS matches (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      posting_id  INTEGER NOT NULL REFERENCES postings(id),
-      score       INTEGER,
-      tier        TEXT CHECK (tier IN ('safe', 'stretch', 'reach', 'no')),
-      reasoning   TEXT,
-      gaps_json   TEXT,
-      scored_at   TEXT NOT NULL
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      posting_id    INTEGER NOT NULL REFERENCES postings(id),
+      content_hash  TEXT NOT NULL DEFAULT '',
+      score         INTEGER,
+      tier          TEXT CHECK (tier IN ('safe', 'stretch', 'reach', 'no')),
+      reasoning     TEXT,
+      gaps_json     TEXT,
+      scored_at     TEXT NOT NULL
     );
-
-    CREATE INDEX IF NOT EXISTS idx_matches_posting_id ON matches (posting_id);
   `);
+
+  ensureMatchesContentHashColumn(db);
+
+  // One row per scored posting (CLAUDE.md): enforced via a unique index
+  // rather than an inline UNIQUE constraint so it can be added to a
+  // pre-Phase-4 `matches` table without rebuilding it. The old non-unique
+  // index (Phase 1) is dropped first so it doesn't linger unenforced.
+  db.exec(`
+    DROP INDEX IF EXISTS idx_matches_posting_id;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_matches_posting_id_unique ON matches (posting_id);
+  `);
+}
+
+/** Migrates a pre-Phase-4 `matches` table (created without `content_hash`) in place. */
+function ensureMatchesContentHashColumn(db: Database.Database): void {
+  const columns = db.prepare(`PRAGMA table_info(matches)`).all() as Array<{ name: string }>;
+  if (!columns.some((c) => c.name === "content_hash")) {
+    db.exec(`ALTER TABLE matches ADD COLUMN content_hash TEXT NOT NULL DEFAULT ''`);
+  }
 }

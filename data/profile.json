@@ -1,0 +1,31 @@
+{
+  "solid": [
+    "React",
+    "TypeScript",
+    "Node",
+    "Express",
+    "PostgreSQL",
+    "Prisma",
+    "REST",
+    "JWT auth (access+refresh, httpOnly cookies)",
+    "Git"
+  ],
+  "working": [
+    "Supabase/pgvector",
+    "raw pg client",
+    "Gemini API",
+    "SSE streaming",
+    "Vitest",
+    "AST parsing",
+    "Cloudinary",
+    "Vite"
+  ],
+  "learning": ["test design and mocking", "DSA (NeetCode, JavaScript)"],
+  "next": ["Docker", "CI/CD"],
+  "constraints": {
+    "location": "Nepal (UTC+5:45)",
+    "workVisa": false,
+    "eligibility": "worldwide or contractor-eligible remote roles only",
+    "level": "entry/junior level only"
+  }
+}
