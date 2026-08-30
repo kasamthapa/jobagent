@@ -11,6 +11,8 @@ import {
   upsertPosting,
   closeStalePostings,
   listOpenPostings,
+  listOpenPostingsForScoring,
+  upsertMatch,
   type PostingUpsert,
 } from "../../src/db/queries.js";
 import type { Source } from "../../src/sources/types.js";
@@ -239,5 +241,93 @@ describe("listOpenPostings", () => {
 
     const open = listOpenPostings(db);
     expect(open.map((p) => p.external_id)).toEqual(["still-open"]);
+  });
+});
+
+describe("listOpenPostingsForScoring / upsertMatch", () => {
+  let db: Database.Database;
+  let sourceId: number;
+
+  beforeEach(() => {
+    db = new Database(":memory:");
+    createSchema(db);
+    upsertSource(db, remotive);
+    sourceId = getSourceByName(db, "remotive")!.id;
+  });
+
+  function posting(overrides: Partial<PostingUpsert> = {}): PostingUpsert {
+    return {
+      sourceId,
+      companyId: null,
+      externalId: "ext-1",
+      title: "Junior Dev",
+      description: "Do junior dev things.",
+      url: "https://example.test/ext-1",
+      location: null,
+      locationPolicy: "worldwide",
+      timezoneRequirement: null,
+      salaryText: null,
+      postedAt: null,
+      deadline: null,
+      contentHash: "hash-1",
+      dedupeKey: "acme::junior-dev",
+      now: "2026-01-01T00:00:00.000Z",
+      ...overrides,
+    };
+  }
+
+  it("includes the source's market and a null match_content_hash for a never-scored posting", () => {
+    upsertPosting(db, posting());
+    const rows = listOpenPostingsForScoring(db);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ market: "remote", match_content_hash: null });
+  });
+
+  it("excludes closed postings", () => {
+    upsertPosting(db, posting());
+    closeStalePostings(db, sourceId, []);
+    expect(listOpenPostingsForScoring(db)).toHaveLength(0);
+  });
+
+  it("reflects the current match's content_hash once upsertMatch has run", () => {
+    const { id } = upsertPosting(db, posting());
+    upsertMatch(db, {
+      postingId: id,
+      contentHash: "hash-1",
+      score: 80,
+      tier: "safe",
+      reasoning: "Needs only solid skills.",
+      gapsJson: "[]",
+      scoredAt: "2026-01-01T00:00:00.000Z",
+    });
+    const rows = listOpenPostingsForScoring(db);
+    expect(rows[0]?.match_content_hash).toBe("hash-1");
+  });
+
+  it("upsertMatch replaces the existing row for a posting instead of inserting a second one", () => {
+    const { id } = upsertPosting(db, posting());
+    upsertMatch(db, {
+      postingId: id,
+      contentHash: "hash-1",
+      score: 80,
+      tier: "safe",
+      reasoning: "first",
+      gapsJson: "[]",
+      scoredAt: "2026-01-01T00:00:00.000Z",
+    });
+    upsertMatch(db, {
+      postingId: id,
+      contentHash: "hash-2",
+      score: 40,
+      tier: "reach",
+      reasoning: "second",
+      gapsJson: '["Docker"]',
+      scoredAt: "2026-01-02T00:00:00.000Z",
+    });
+
+    const rows = db.prepare(`SELECT * FROM matches`).all() as Array<Record<string, unknown>>;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.tier).toBe("reach");
+    expect(rows[0]?.reasoning).toBe("second");
   });
 });

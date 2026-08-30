@@ -217,14 +217,96 @@ describe("runPoll", () => {
   });
 });
 
-describe("phase-2+ stub commands", () => {
-  it("runScore logs a stub message and does not throw", () => {
-    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    expect(() => runScore()).not.toThrow();
-    expect(spy).toHaveBeenCalled();
-    spy.mockRestore();
+describe("runScore", () => {
+  function setUp(): { dbPath: string; profilePath: string } {
+    const dir = tmpDir();
+    const dbPath = join(dir, "jobs.db");
+    const registryPath = join(dir, "sources.json");
+    const profilePath = join(dir, "profile.json");
+    writeFileSync(
+      registryPath,
+      JSON.stringify([
+        { name: "remotive", market: "remote", kind: "api", url: "https://x.test", adapter: "remotive", active: true },
+      ]),
+    );
+    writeFileSync(
+      profilePath,
+      JSON.stringify({
+        solid: ["React"],
+        working: ["Vitest"],
+        learning: ["DSA"],
+        next: ["Docker"],
+        constraints: {
+          location: "Nepal (UTC+5:45)",
+          workVisa: false,
+          eligibility: "worldwide or contractor-eligible remote roles only",
+          level: "entry/junior level only",
+        },
+      }),
+    );
+    runInit(dbPath, registryPath);
+    return { dbPath, profilePath };
+  }
+
+  afterEach(() => {
+    delete process.env.GEMINI_API_KEY;
+    vi.unstubAllGlobals();
   });
 
+  it("without GEMINI_API_KEY, prefilters and records the rest as unscored, without throwing", async () => {
+    delete process.env.GEMINI_API_KEY;
+    const { dbPath, profilePath } = setUp();
+    const db = new Database(dbPath);
+    const sourceId = (db.prepare(`SELECT id FROM sources WHERE name = 'remotive'`).get() as { id: number }).id;
+    db.prepare(
+      `INSERT INTO postings (source_id, external_id, title, description, url, location_policy, first_seen_at, last_seen_at, content_hash, dedupe_key)
+       VALUES (?, 'e1', 'Junior Full-Stack Developer', 'Build things.', 'https://x.test/1', 'worldwide', '2026-01-01', '2026-01-01', 'h1', 'd1')`,
+    ).run(sourceId);
+    db.close();
+
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await expect(runScore(dbPath, profilePath)).resolves.toBeUndefined();
+    const logged = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    logSpy.mockRestore();
+
+    expect(logged).toContain("GEMINI_API_KEY not set");
+    expect(logged).toMatch(/Tier distribution/);
+    expect(logged).toMatch(/Cache hit rate/);
+
+    const match = new Database(dbPath, { readonly: true })
+      .prepare(`SELECT * FROM matches`)
+      .get() as Record<string, unknown>;
+    expect(match.tier).toBeNull();
+    expect(match.reasoning).toMatch(/no GEMINI_API_KEY/);
+  });
+
+  it("drops a senior title via the prefilter and populates matches without calling Gemini", async () => {
+    const { dbPath, profilePath } = setUp();
+    const db = new Database(dbPath);
+    const sourceId = (db.prepare(`SELECT id FROM sources WHERE name = 'remotive'`).get() as { id: number }).id;
+    db.prepare(
+      `INSERT INTO postings (source_id, external_id, title, description, url, location_policy, first_seen_at, last_seen_at, content_hash, dedupe_key)
+       VALUES (?, 'e1', 'Senior Full-Stack Developer', 'Build things.', 'https://x.test/1', 'worldwide', '2026-01-01', '2026-01-01', 'h1', 'd1')`,
+    ).run(sourceId);
+    db.close();
+
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    process.env.GEMINI_API_KEY = "test-key";
+
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await runScore(dbPath, profilePath);
+    logSpy.mockRestore();
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    const match = new Database(dbPath, { readonly: true })
+      .prepare(`SELECT * FROM matches`)
+      .get() as Record<string, unknown>;
+    expect(match.tier).toBe("no");
+  });
+});
+
+describe("phase-2+ stub commands", () => {
   it("runDigest logs a stub message and does not throw", () => {
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
     expect(() => runDigest()).not.toThrow();

@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import type { LocationPolicy, Market, SourceKind, Source } from "../sources/types.js";
+import type { LocationPolicy, Market, SourceKind, Source, Tier } from "../sources/types.js";
 import { TABLE_NAMES } from "./schema.js";
 
 /**
@@ -188,6 +188,59 @@ export interface PostingRow {
 /** Every currently-open posting. Used by the dedupe pipeline to group the same job across sources. */
 export function listOpenPostings(db: Database.Database): PostingRow[] {
   return db.prepare(`SELECT * FROM postings WHERE is_open = 1`).all() as PostingRow[];
+}
+
+/** An open posting joined with its source's market and its current match's content_hash (Phase 4). */
+export interface PostingForScoring extends PostingRow {
+  market: Market;
+  /** null when the posting has never been scored. */
+  match_content_hash: string | null;
+}
+
+/**
+ * Every open posting, alongside the market of the source it came from and
+ * the content_hash its current match (if any) was scored against. The
+ * scorer uses `match_content_hash === content_hash` to decide a cache hit
+ * (skip re-scoring) vs. a cache miss (content changed, or never scored).
+ */
+export function listOpenPostingsForScoring(db: Database.Database): PostingForScoring[] {
+  return db
+    .prepare(
+      `SELECT p.*, s.market AS market, m.content_hash AS match_content_hash
+       FROM postings p
+       JOIN sources s ON s.id = p.source_id
+       LEFT JOIN matches m ON m.posting_id = p.id
+       WHERE p.is_open = 1`,
+    )
+    .all() as PostingForScoring[];
+}
+
+export interface MatchUpsert {
+  postingId: number;
+  contentHash: string;
+  score: number | null;
+  tier: Tier | null;
+  reasoning: string | null;
+  gapsJson: string | null;
+  scoredAt: string;
+}
+
+/**
+ * Inserts a match, or replaces it in place if this posting already has one
+ * — `matches` is one row per scored posting (CLAUDE.md), not a history log.
+ */
+export function upsertMatch(db: Database.Database, m: MatchUpsert): void {
+  db.prepare(
+    `INSERT INTO matches (posting_id, content_hash, score, tier, reasoning, gaps_json, scored_at)
+     VALUES (@postingId, @contentHash, @score, @tier, @reasoning, @gapsJson, @scoredAt)
+     ON CONFLICT(posting_id) DO UPDATE SET
+       content_hash = excluded.content_hash,
+       score = excluded.score,
+       tier = excluded.tier,
+       reasoning = excluded.reasoning,
+       gaps_json = excluded.gaps_json,
+       scored_at = excluded.scored_at`,
+  ).run(m);
 }
 
 /** Row counts for every table, keyed by table name. Used by `cli.ts init` to report progress. */

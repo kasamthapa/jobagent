@@ -11,6 +11,8 @@ import {
 import { adapters } from "./sources/adapters/index.js";
 import { applyPoll } from "./pipeline/upsert.js";
 import { computeDedupeGroups, countDuplicates } from "./pipeline/dedupe.js";
+import { loadProfile, DEFAULT_PROFILE_PATH } from "./scoring/profile.js";
+import { scorePostings } from "./scoring/scorer.js";
 import type { Market, Source } from "./sources/types.js";
 
 /** A `SourceRow` is a `Source` plus id/health columns — adapters only need the `Source` shape. */
@@ -163,9 +165,49 @@ export async function runPoll(
   }
 }
 
-/** Stub — Phase 4 adds the scorer. */
-export function runScore(): void {
-  console.log("score: not implemented yet (Phase 4 adds the scorer).");
+/**
+ * Scores every open posting that hasn't already been scored against its
+ * current content_hash: a cheap prefilter first, then Gemini for survivors.
+ * Without a `GEMINI_API_KEY` in the environment, LLM scoring is skipped and
+ * every prefilter survivor is recorded as unscored (score/tier = null)
+ * rather than failing the whole command — the prefilter pass still runs and
+ * still populates `matches`.
+ */
+export async function runScore(
+  dbPath: string = DEFAULT_DB_PATH,
+  profilePath: string = DEFAULT_PROFILE_PATH,
+): Promise<void> {
+  const db = openDb(dbPath);
+  try {
+    const profile = loadProfile(profilePath);
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.log(
+        "GEMINI_API_KEY not set — skipping LLM scoring; prefilter still runs and unscored matches are recorded.",
+      );
+    }
+
+    const summary = await scorePostings(db, {
+      profile,
+      gemini: apiKey ? { apiKey } : null,
+    });
+
+    const cacheTotal = summary.cacheHits + summary.cacheMisses;
+    const hitRate = cacheTotal === 0 ? 0 : Math.round((summary.cacheHits / cacheTotal) * 100);
+
+    console.log(
+      `Considered ${summary.totalOpen} open posting(s): ${summary.cacheHits} cache hit(s), ` +
+        `${summary.cacheMisses} cache miss(es) (${summary.prefilterDropped} dropped by prefilter, ` +
+        `${summary.llmScored} scored by Gemini, ${summary.llmFailed} unscored).`,
+    );
+    console.log(`Cache hit rate: ${summary.cacheHits}/${cacheTotal} (${hitRate}%).`);
+    console.log(
+      `Tier distribution: safe=${summary.tierCounts.safe}, stretch=${summary.tierCounts.stretch}, ` +
+        `reach=${summary.tierCounts.reach}, no=${summary.tierCounts.no}, unscored=${summary.tierCounts.unscored}.`,
+    );
+  } finally {
+    db.close();
+  }
 }
 
 /** Stub — Phase 5 adds the digest writer. */
@@ -183,7 +225,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
       await runPoll(flags);
       break;
     case "score":
-      runScore();
+      await runScore();
       break;
     case "digest":
       runDigest();
