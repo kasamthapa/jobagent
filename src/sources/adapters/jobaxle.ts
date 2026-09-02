@@ -3,11 +3,12 @@ import { makeRawPosting } from "./shared.js";
 import { extractJobCards, fetchHtml } from "./nepal-shared.js";
 
 /**
- * https://jobaxle.com — Nepal IT-focused job portal. The configured URL is
- * the homepage (per `data/sources.json`, seeded in Phase 1), which mostly
- * shows category links rather than a job list — the heuristic extractor may
- * find nothing there, logged as a source error rather than crashing the
- * poll (see CLAUDE.md).
+ * https://jobaxle.com — Nepal IT-focused job portal. Confirmed 2026-09: both
+ * the homepage and /search render their job list entirely via client-side
+ * JS — 0 job links in the static HTML on either. No server-rendered
+ * listing URL was found on this domain, so this source is deactivated in
+ * data/sources.json (see its "note"). A 0-match result is logged as a
+ * source error rather than crashing the poll (see CLAUDE.md).
  */
 export const jobaxleAdapter: JobSource = {
   name: "jobaxle",

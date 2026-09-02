@@ -39,8 +39,11 @@ describe("careersGenericAdapter", () => {
     const postings = await careersGenericAdapter.fetch(source);
 
     expect(postings).toHaveLength(2);
-    expect(postings[0]).toMatchObject({ title: "Junior Full Stack Developer", companyName: "Example Tech" });
-    expect(postings[1]).toMatchObject({ title: "QA Analyst", companyName: "Example Tech" });
+    // Title text includes the site's own "Apply Now" suffix baked into the
+    // link text (real pattern seen on softnep.com/opportunities/jobs) —
+    // the heuristic doesn't strip it, it just extracts whatever the link says.
+    expect(postings[0]).toMatchObject({ title: "Junior Full Stack Developer Apply Now", companyName: "Example Tech" });
+    expect(postings[1]).toMatchObject({ title: "QA Analyst Apply Now", companyName: "Example Tech" });
     // Careers-page job links rarely carry a numeric id, so externalId falls back to a hash of the URL.
     expect(postings[0]?.externalId).toMatch(/^[0-9a-f]{16}$/);
   });

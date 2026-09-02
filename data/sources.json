@@ -53,7 +53,8 @@
     "kind": "portal",
     "url": "https://merojob.com/category/it-telecommunication",
     "adapter": "merojob",
-    "active": true
+    "active": false,
+    "note": "Deactivated 2026-09: category page now renders its job list entirely client-side (React) — 0 job links in the static HTML. The homepage does server-render a real 'latest jobs' feed with numeric-id links, but it isn't IT-filtered (mostly sales/accounting), so pointing the adapter there would ingest mostly irrelevant postings. No known server-rendered IT-category URL exists. Re-check periodically."
   },
   {
     "name": "kumarijob",
@@ -77,7 +78,8 @@
     "kind": "portal",
     "url": "https://jobaxle.com",
     "adapter": "jobaxle",
-    "active": true
+    "active": false,
+    "note": "Deactivated 2026-09: confirmed a full client-side SPA — checked both the homepage and /search, neither has a single job listing link in the static HTML (only a handful of category nav links). No server-rendered listing URL found on this domain."
   },
   {
     "name": "leapfrog-technology",
@@ -85,7 +87,8 @@
     "kind": "careers",
     "url": "https://www.lftechnology.com/careers",
     "adapter": "careers-generic",
-    "active": true
+    "active": false,
+    "note": "Deactivated 2026-09: page title is literally 'Explore our current openings' but the static HTML has zero per-role links — only a CTA anchor back to '#currentOpenings' on the same page. Listings are rendered client-side; no embedded JSON or ATS link found."
   },
   {
     "name": "f1soft",
@@ -101,7 +104,8 @@
     "kind": "careers",
     "url": "https://fusemachines.com/company/careers/",
     "adapter": "careers-generic",
-    "active": true
+    "active": false,
+    "note": "Deactivated 2026-09: the careers page's static HTML has no per-role links at all — just the same site-wide marketing nav every page on fusemachines.com has. Listings are rendered client-side; no ATS link found."
   },
   {
     "name": "cotiviti-nepal",
@@ -109,7 +113,8 @@
     "kind": "careers",
     "url": null,
     "adapter": "careers-generic",
-    "active": false
+    "active": false,
+    "note": "Investigated 2026-09 (this was never a Phase 1 fixture regression, still genuinely unverifiable): www.cotiviti.com.np does not resolve (DNS failure) — the Nepal-specific domain appears dead. Cotiviti's global careers.cotiviti.com/careers exists but is a whole-company board (not Nepal-filterable) hosted on an iCIMS ATS. Left url: null per Phase 1's 'do not invent URLs' rule."
   },
   {
     "name": "deerwalk",
@@ -117,7 +122,8 @@
     "kind": "careers",
     "url": null,
     "adapter": "careers-generic",
-    "active": false
+    "active": false,
+    "note": "Investigated 2026-09 (still genuinely unverifiable): deerwalk.com now 301-redirects entirely to www.cedargate.com — Deerwalk appears to have been absorbed into Cedar Gate Technologies (already a separate, also-broken source in this file) and no longer has an independent site. Left url: null."
   },
   {
     "name": "cedar-gate",
@@ -125,7 +131,8 @@
     "kind": "careers",
     "url": "https://www.cedargate.com/careers/",
     "adapter": "careers-generic",
-    "active": true
+    "active": false,
+    "note": "Deactivated 2026-09: careers page has no per-role links, only a 'View Open Positions' link out to jobs.iqvia.com (Cedar Gate's parent IQVIA runs their board). Fetched that page directly: 1.8MB of boilerplate SPA shell, no listing text in the static HTML — not scrapable with cheerio."
   },
   {
     "name": "verisk-nepal",
@@ -133,7 +140,8 @@
     "kind": "careers",
     "url": "https://www.verisknepal.com.np/",
     "adapter": "careers-generic",
-    "active": true
+    "active": false,
+    "note": "Deactivated 2026-09: single-page marketing site with no per-role links — only an 'Apply Now' link out to an Oracle Cloud HCM recruiting SPA (fa-ewmy-saasfaprod1.fa.ocs.oraclecloud.com), which renders entirely client-side and isn't scrapable with cheerio."
   },
   {
     "name": "yarsa-labs",
@@ -149,7 +157,8 @@
     "kind": "careers",
     "url": "https://www.docsumo.com/careers",
     "adapter": "careers-generic",
-    "active": true
+    "active": false,
+    "note": "Deactivated 2026-09: careers page has no per-role links, only a 'Explore all opportunities' link out to jobs.lever.co/docsumo. That Lever board currently 404s ('the job posting you're looking for might have closed') — Docsumo has either no open reqs right now or has moved off Lever. Re-check periodically."
   },
   {
     "name": "khalti",
@@ -171,17 +180,19 @@
     "name": "vairav",
     "market": "nepal",
     "kind": "careers",
-    "url": null,
+    "url": "https://vairavtech.com/careers",
     "adapter": "careers-generic",
-    "active": false
+    "active": false,
+    "note": "URL found 2026-09 (vairav.net 301-redirects to vairavtech.com — the domain rebranded since Phase 1, which is why it was unverifiable then): careers page is a bare React SPA shell (<div id=\"root\"></div>, no static content at all). Set url now that it's known, but left inactive since it's not scrapable."
   },
   {
     "name": "rooster-logic",
     "market": "nepal",
     "kind": "careers",
-    "url": null,
+    "url": "https://roosterlogic.com",
     "adapter": "careers-generic",
-    "active": false
+    "active": false,
+    "note": "URL found 2026-09 (roosterlogic.com is live, contradicting Phase 1's 'unverifiable'): no dedicated careers/vacancy page exists on the site (/careers 404s, homepage has zero career-related links). Postings, when they exist, only appear on third-party portals (merojob, ramrojob), which this project doesn't scrape per-employer. Set url to the homepage for documentation; left inactive."
   },
   {
     "name": "young-innovations",
@@ -189,15 +200,17 @@
     "kind": "careers",
     "url": "https://younginnovations.com.np/vacancy",
     "adapter": "careers-generic",
-    "active": true
+    "active": false,
+    "note": "Deactivated 2026-09: /vacancy page (the configured URL, already the intended listing page) has zero per-role links in the static HTML, just site-wide nav. Listings are rendered client-side; no embedded JSON or ATS link found."
   },
   {
     "name": "softnep",
     "market": "nepal",
     "kind": "careers",
-    "url": "https://www.softnep.com/career",
+    "url": "https://www.softnep.com/opportunities/jobs",
     "adapter": "careers-generic",
-    "active": true
+    "active": true,
+    "note": "URL fixed 2026-09: the old /career URL is just a nav CTA page with no listings. Real per-role links (12 as of this check) live at /opportunities/jobs — confirmed working with the existing careers-generic adapter, no code change needed."
   },
   {
     "name": "raralabs",
@@ -205,6 +218,7 @@
     "kind": "careers",
     "url": "https://raralabs.com/career",
     "adapter": "careers-generic",
-    "active": true
+    "active": false,
+    "note": "Deactivated 2026-09: page has an '#open-positions' anchor but no actual per-role links — that section is rendered client-side. No embedded JSON or ATS link found."
   }
 ]

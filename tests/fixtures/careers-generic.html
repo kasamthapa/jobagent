@@ -1,24 +1,27 @@
 <!DOCTYPE html>
 <html>
-<head><title>Careers | Example Tech</title></head>
+<!-- Structure mirrors softnep.com/opportunities/jobs as of 2026-09 (Bootstrap
+     grid + a per-card "Apply Now" suffix baked into the link text) — see
+     tests/sources/adapters/careers-generic.test.ts. -->
+<head><title>Job Opportunities | Example Tech</title></head>
 <body>
   <nav>
-    <a href="/">Home</a>
-    <a href="/about">About Us</a>
-    <a href="/contact">Contact</a>
+    <a href="https://example-tech.test/">Home</a>
+    <a href="https://example-tech.test/about">About</a>
+    <a href="https://example-tech.test/contact">Contact</a>
+    <a href="https://example-tech.test/career">Career</a>
   </nav>
-  <main>
-    <h1>Open Positions</h1>
-    <ul class="openings">
-      <li>
-        <a href="/careers/junior-fullstack-developer">Junior Full Stack Developer</a>
-        <span>Kathmandu &middot; Full-time</span>
-      </li>
-      <li>
-        <a href="/careers/qa-analyst">QA Analyst</a>
-        <span>Kathmandu &middot; Full-time</span>
-      </li>
-    </ul>
-  </main>
+  <section class="section content-section">
+    <div class="container icon-items career-list">
+      <div class="row">
+        <div class="items col-md-6">
+          <a href="https://example-tech.test/career/junior-full-stack-developer">Junior Full Stack Developer <span class="apply-now">Apply Now</span></a>
+        </div>
+        <div class="items col-md-6">
+          <a href="https://example-tech.test/career/qa-analyst">QA Analyst <span class="apply-now">Apply Now</span></a>
+        </div>
+      </div>
+    </div>
+  </section>
 </body>
 </html>
