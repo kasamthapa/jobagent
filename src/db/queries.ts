@@ -243,6 +243,45 @@ export function upsertMatch(db: Database.Database, m: MatchUpsert): void {
   ).run(m);
 }
 
+export interface DigestMatchRow {
+  posting_id: number;
+  title: string;
+  url: string | null;
+  location: string | null;
+  deadline: string | null;
+  first_seen_at: string;
+  dedupe_key: string;
+  market: Market;
+  company_name: string | null;
+  score: number | null;
+  tier: Tier | null;
+  reasoning: string | null;
+  gaps_json: string | null;
+  scored_at: string;
+}
+
+/**
+ * Every open, scored posting joined with its match, company name, and
+ * source market — the digest's (Phase 5) primary data source. A posting
+ * that's never been through `score` (no match row at all) is absent here;
+ * the digest only reports on postings the scorer has judged.
+ */
+export function listMatchesForDigest(db: Database.Database): DigestMatchRow[] {
+  return db
+    .prepare(
+      `SELECT p.id AS posting_id, p.title, p.url, p.location, p.deadline,
+              p.first_seen_at, p.dedupe_key, s.market AS market,
+              c.name AS company_name, m.score, m.tier, m.reasoning,
+              m.gaps_json, m.scored_at
+       FROM matches m
+       JOIN postings p ON p.id = m.posting_id
+       JOIN sources s ON s.id = p.source_id
+       LEFT JOIN companies c ON c.id = p.company_id
+       WHERE p.is_open = 1`,
+    )
+    .all() as DigestMatchRow[];
+}
+
 /** Row counts for every table, keyed by table name. Used by `cli.ts init` to report progress. */
 export function countTables(db: Database.Database): Record<(typeof TABLE_NAMES)[number], number> {
   const counts = {} as Record<(typeof TABLE_NAMES)[number], number>;
