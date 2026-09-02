@@ -56,7 +56,7 @@ describe("callGemini", () => {
     const text = await callGemini("prompt", { apiKey: "key", fetchImpl, rateLimiter: noRateLimit });
     expect(text).toBe('{"score": 70}');
     const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
-    expect(url).toContain("gemini-2.5-flash:generateContent");
+    expect(url).toContain("gemini-3.6-flash:generateContent");
     expect(url).toContain("key=key");
     expect(JSON.parse(init.body as string).contents[0].parts[0].text).toBe("prompt");
   });

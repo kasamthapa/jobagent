@@ -3,7 +3,7 @@ import type { Market } from "../sources/types.js";
 import { buildScoringPrompt, type PromptPosting } from "./prompt.js";
 import type { LlmScoreResult, Profile } from "./types.js";
 
-const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_MODEL = "gemini-3.6-flash";
 
 /** Junior remote international hiring is far more competitive than Nepal — see CLAUDE.md/PLAN.md. */
 const REMOTE_PENALTY = 15;

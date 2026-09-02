@@ -223,7 +223,7 @@ content_hash changed):
 1. Cheap prefilter, no LLM: drop senior/lead/principal/manager titles, drop
    non-engineering roles, drop remote roles where location_policy is
    'region_locked' and the region excludes Nepal. Log how many were dropped.
-2. LLM scoring on survivors via Gemini (`gemini-2.5-flash`). Return strict
+2. LLM scoring on survivors via Gemini (`gemini-3.6-flash`). Return strict
    JSON: `{score: 0-100, tier, reasoning, gaps: string[]}`.
    - `safe` — needs only `solid` skills
    - `stretch` — leans on `working` + `learning`; THIS IS THE TARGET ZONE
