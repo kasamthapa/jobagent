@@ -1,7 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
-import { applyRemotePenalty, callGemini, scoreWithGemini } from "../../src/scoring/gemini.js";
+import {
+  applyRemotePenalty,
+  callGemini,
+  GeminiTimeoutError,
+  scoreWithGemini,
+} from "../../src/scoring/gemini.js";
 import type { PromptPosting } from "../../src/scoring/prompt.js";
 import type { Profile } from "../../src/scoring/types.js";
+
+/** Skips the real 2s retry backoff so retry tests run instantly. */
+const noDelay = async () => {};
 
 const profile: Profile = {
   solid: ["React", "TypeScript"],
@@ -53,6 +61,22 @@ describe("callGemini", () => {
     const fetchImpl = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
     await expect(callGemini("prompt", { apiKey: "key", fetchImpl })).rejects.toThrow(/no text content/);
   });
+
+  it("aborts and throws GeminiTimeoutError when the request never resolves", async () => {
+    // Mimics real fetch's contract with AbortSignal: the promise only settles
+    // once the signal aborts, otherwise it hangs forever.
+    const fetchImpl = vi.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          });
+        }),
+    );
+    await expect(
+      callGemini("prompt", { apiKey: "key", fetchImpl: fetchImpl as unknown as typeof fetch, timeoutMs: 20 }),
+    ).rejects.toThrow(GeminiTimeoutError);
+  });
 });
 
 describe("scoreWithGemini", () => {
@@ -86,14 +110,14 @@ describe("scoreWithGemini", () => {
       .mockResolvedValueOnce(
         geminiResponse(JSON.stringify({ score: 60, tier: "stretch", reasoning: "ok", gaps: [] })),
       );
-    const result = await scoreWithGemini(posting, profile, { apiKey: "key", fetchImpl });
+    const result = await scoreWithGemini(posting, profile, { apiKey: "key", fetchImpl, delayImpl: noDelay });
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(result?.score).toBe(60);
   });
 
   it("returns null after two failed attempts rather than throwing", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(geminiResponse("still not json"));
-    const result = await scoreWithGemini(posting, profile, { apiKey: "key", fetchImpl });
+    const result = await scoreWithGemini(posting, profile, { apiKey: "key", fetchImpl, delayImpl: noDelay });
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(result).toBeNull();
   });
@@ -102,8 +126,30 @@ describe("scoreWithGemini", () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       geminiResponse(JSON.stringify({ score: 50, tier: "maybe", reasoning: "x", gaps: [] })),
     );
-    const result = await scoreWithGemini(posting, profile, { apiKey: "key", fetchImpl });
+    const result = await scoreWithGemini(posting, profile, { apiKey: "key", fetchImpl, delayImpl: noDelay });
     expect(result).toBeNull();
+  });
+
+  it("times out on a hanging request, retries once, and returns null rather than hanging the run", async () => {
+    const fetchImpl = vi.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          });
+        }),
+    );
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await scoreWithGemini(posting, profile, {
+      apiKey: "key",
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      timeoutMs: 20,
+      delayImpl: noDelay,
+    });
+    expect(result).toBeNull();
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(consoleError).toHaveBeenCalledWith(expect.stringMatching(/timed out/));
+    consoleError.mockRestore();
   });
 });
 
