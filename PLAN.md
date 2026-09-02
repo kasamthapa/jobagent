@@ -246,7 +246,7 @@ prints tier distribution + cache hit rate.
 
 ## Phase 5 — Digest + scheduling
 
-Status: todo
+Status: done
 
 Goal: human-readable output and unattended operation.
 
