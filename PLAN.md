@@ -277,6 +277,9 @@ Goal: make it survivable.
   digest opens with a loud warning. Silent parser death is the main failure
   mode of this whole system.
 - Rate limit + retry with backoff on all network calls.
+  - Gemini rate limiting + retry already implemented in Phase 4 (see commits
+    13e893e, 9080836) — Phase 6 should extend this pattern to the other
+    adapters (portal/careers/API sources), not redo Gemini.
 - Graceful handling of: malformed HTML, API schema changes, network timeouts,
   Gemini quota errors.
 - `npm run cli -- doctor` — checks DB integrity, source reachability, API key
