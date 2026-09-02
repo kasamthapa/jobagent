@@ -26,6 +26,14 @@ function geminiResponse(body: object) {
   };
 }
 
+/**
+ * Skips real rate-limit waits and retry backoff. Without this, tests that
+ * call Gemini more than once (across one or more scorePostings runs) would
+ * pile up real multi-second delays via gemini.ts's default rate limiter.
+ */
+const noRateLimit = { wait: async () => {} };
+const noDelay = async () => {};
+
 describe("scorePostings", () => {
   let db: Database.Database;
   let sourceId: number;
@@ -72,7 +80,7 @@ describe("scorePostings", () => {
 
     const summary = await scorePostings(db, {
       profile,
-      gemini: { apiKey: "key", fetchImpl },
+      gemini: { apiKey: "key", fetchImpl, rateLimiter: noRateLimit },
     });
 
     expect(fetchImpl).not.toHaveBeenCalled();
@@ -90,7 +98,10 @@ describe("scorePostings", () => {
       .fn()
       .mockResolvedValue(geminiResponse({ score: 70, tier: "stretch", reasoning: "Good fit.", gaps: ["Docker"] }));
 
-    const summary = await scorePostings(db, { profile, gemini: { apiKey: "key", fetchImpl } });
+    const summary = await scorePostings(db, {
+      profile,
+      gemini: { apiKey: "key", fetchImpl, rateLimiter: noRateLimit },
+    });
 
     expect(summary.llmScored).toBe(1);
     expect(summary.tierCounts.stretch).toBe(1);
@@ -121,8 +132,9 @@ describe("scorePostings", () => {
       .fn()
       .mockResolvedValue(geminiResponse({ score: 70, tier: "stretch", reasoning: "Good fit.", gaps: [] }));
 
-    await scorePostings(db, { profile, gemini: { apiKey: "key", fetchImpl } });
-    const summary = await scorePostings(db, { profile, gemini: { apiKey: "key", fetchImpl } });
+    const gemini = { apiKey: "key", fetchImpl, rateLimiter: noRateLimit };
+    await scorePostings(db, { profile, gemini });
+    const summary = await scorePostings(db, { profile, gemini });
 
     expect(fetchImpl).toHaveBeenCalledOnce();
     expect(summary).toMatchObject({ cacheHits: 1, cacheMisses: 0, llmScored: 0 });
@@ -134,10 +146,11 @@ describe("scorePostings", () => {
       .fn()
       .mockResolvedValueOnce(geminiResponse({ score: 70, tier: "stretch", reasoning: "First.", gaps: [] }))
       .mockResolvedValueOnce(geminiResponse({ score: 40, tier: "reach", reasoning: "Second.", gaps: ["Docker"] }));
+    const gemini = { apiKey: "key", fetchImpl, rateLimiter: noRateLimit };
 
-    await scorePostings(db, { profile, gemini: { apiKey: "key", fetchImpl } });
+    await scorePostings(db, { profile, gemini });
     insertPosting({ contentHash: "hash-2", now: "2026-01-02T00:00:00.000Z" });
-    const summary = await scorePostings(db, { profile, gemini: { apiKey: "key", fetchImpl } });
+    const summary = await scorePostings(db, { profile, gemini });
 
     expect(summary).toMatchObject({ cacheHits: 0, cacheMisses: 1, llmScored: 1 });
     const matches = db.prepare(`SELECT * FROM matches`).all();
@@ -145,6 +158,43 @@ describe("scorePostings", () => {
     const match = matches[0] as Record<string, unknown>;
     expect(match.tier).toBe("reach");
     expect(match.score).toBe(25); // 40 - 15 remote penalty
+  });
+
+  it("records the specific failure reason in reasoning, e.g. a 429 rate limit, instead of a flat generic string", async () => {
+    insertPosting();
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 429 });
+
+    const summary = await scorePostings(db, {
+      profile,
+      gemini: { apiKey: "key", fetchImpl, delayImpl: noDelay, rateLimiter: noRateLimit },
+    });
+
+    expect(summary.llmFailed).toBe(1);
+    const match = db.prepare(`SELECT * FROM matches`).get() as Record<string, unknown>;
+    expect(match.tier).toBeNull();
+    expect(String(match.reasoning)).toContain("429");
+  });
+
+  it("retries a previously-failed posting on the next run rather than treating it as a cache hit forever", async () => {
+    insertPosting();
+    const fetchImpl = vi
+      .fn()
+      // Both attempts of the first scorePostings run fail (retry included)...
+      .mockResolvedValueOnce({ ok: false, status: 429 })
+      .mockResolvedValueOnce({ ok: false, status: 429 })
+      // ...then the retry on the second run succeeds.
+      .mockResolvedValueOnce(geminiResponse({ score: 70, tier: "stretch", reasoning: "Good fit.", gaps: [] }));
+    const gemini = { apiKey: "key", fetchImpl, delayImpl: noDelay, rateLimiter: noRateLimit };
+
+    const first = await scorePostings(db, { profile, gemini });
+    expect(first).toMatchObject({ cacheMisses: 1, llmFailed: 1 });
+
+    const second = await scorePostings(db, { profile, gemini });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(second).toMatchObject({ cacheHits: 0, cacheMisses: 1, llmScored: 1 });
+    const match = db.prepare(`SELECT * FROM matches`).get() as Record<string, unknown>;
+    expect(match.tier).toBe("stretch");
   });
 
   it("does not score closed postings", async () => {

@@ -111,7 +111,7 @@ async function scoreOne(
     return;
   }
 
-  const result = await scoreWithGemini(
+  const outcome = await scoreWithGemini(
     {
       title: posting.title,
       description: posting.description ?? "",
@@ -124,22 +124,27 @@ async function scoreOne(
     opts.gemini,
   );
 
-  if (!result) {
+  if (!outcome.ok) {
     summary.llmFailed++;
     summary.tierCounts.unscored++;
     upsertMatch(db, {
       postingId: posting.id,
-      contentHash: posting.content_hash,
+      // Deliberately not posting.content_hash: the cache-hit check above is
+      // `match_content_hash === content_hash`, so recording the real hash on
+      // a failure would make this posting look "already scored" forever and
+      // it would never be retried. An empty string never matches a real
+      // sha256 content_hash, so the next run always retries it.
+      contentHash: "",
       score: null,
       tier: null,
-      reasoning: "LLM scoring failed after retry",
+      reasoning: `LLM scoring failed: ${outcome.error}`,
       gapsJson: null,
       scoredAt: now(),
     });
     return;
   }
 
-  const penalized = applyRemotePenalty(result, posting.market);
+  const penalized = applyRemotePenalty(outcome.value, posting.market);
   summary.llmScored++;
   summary.tierCounts[penalized.tier]++;
   upsertMatch(db, {
