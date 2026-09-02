@@ -1,5 +1,5 @@
 import { describe, expect, it, afterEach, vi } from "vitest";
-import { mkdtempSync, writeFileSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
@@ -306,11 +306,104 @@ describe("runScore", () => {
   });
 });
 
-describe("phase-2+ stub commands", () => {
-  it("runDigest logs a stub message and does not throw", () => {
-    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    expect(() => runDigest()).not.toThrow();
-    expect(spy).toHaveBeenCalled();
-    spy.mockRestore();
+describe("runDigest", () => {
+  function setUp(): { dbPath: string; statePath: string; outDir: string } {
+    const dir = tmpDir();
+    const dbPath = join(dir, "jobs.db");
+    const registryPath = join(dir, "sources.json");
+    const statePath = join(dir, "digest-state.json");
+    const outDir = join(dir, "out");
+    writeFileSync(
+      registryPath,
+      JSON.stringify([
+        { name: "remotive", market: "remote", kind: "api", url: "https://x.test", adapter: "remotive", active: true },
+      ]),
+    );
+    runInit(dbPath, registryPath);
+    return { dbPath, statePath, outDir };
+  }
+
+  function seedScoredPosting(
+    dbPath: string,
+    opts: { externalId?: string; tier?: string | null; deadline?: string | null; firstSeenAt?: string } = {},
+  ): void {
+    const db = new Database(dbPath);
+    const sourceId = (db.prepare(`SELECT id FROM sources WHERE name = 'remotive'`).get() as { id: number }).id;
+    const externalId = opts.externalId ?? "e1";
+    const firstSeenAt = opts.firstSeenAt ?? "2026-01-01T00:00:00.000Z";
+    db.prepare(
+      `INSERT INTO postings (source_id, external_id, title, description, url, location_policy, deadline, first_seen_at, last_seen_at, content_hash, dedupe_key)
+       VALUES (?, ?, 'Junior Full-Stack Developer', 'Build things.', 'https://x.test/1', 'worldwide', ?, ?, ?, ?, ?)`,
+    ).run(sourceId, externalId, opts.deadline ?? null, firstSeenAt, firstSeenAt, `h-${externalId}`, `d-${externalId}`);
+    const postingId = (db.prepare(`SELECT id FROM postings WHERE external_id = ?`).get(externalId) as { id: number }).id;
+    db.prepare(
+      `INSERT INTO matches (posting_id, content_hash, score, tier, reasoning, gaps_json, scored_at)
+       VALUES (?, ?, 80, ?, 'Good fit.', '["Docker"]', '2026-01-01T00:00:00.000Z')`,
+    ).run(postingId, `h-${externalId}`, opts.tier === undefined ? "stretch" : opts.tier);
+    db.close();
+  }
+
+  it("writes a non-empty out/digest-YYYY-MM-DD.md even with no data", () => {
+    const { dbPath, statePath, outDir } = setUp();
+    runDigest(dbPath, statePath, outDir, () => "2026-09-02T08:00:00.000Z");
+
+    const outPath = join(outDir, "digest-2026-09-02.md");
+    expect(existsSync(outPath)).toBe(true);
+    const content = readFileSync(outPath, "utf-8");
+    expect(content.length).toBeGreaterThan(0);
+    expect(content).toContain("# Job Digest — 2026-09-02");
+    expect(content).toContain("No new postings");
+    expect(content).toContain("## Source health");
+  });
+
+  it("lists a scored posting under its tier on the first run", () => {
+    const { dbPath, statePath, outDir } = setUp();
+    seedScoredPosting(dbPath);
+    runDigest(dbPath, statePath, outDir, () => "2026-09-02T08:00:00.000Z");
+
+    const content = readFileSync(join(outDir, "digest-2026-09-02.md"), "utf-8");
+    expect(content).toContain("## Stretch (1)");
+    expect(content).toContain("Junior Full-Stack Developer");
+  });
+
+  it("advances the state file so a second run only reports what's new since the first", () => {
+    const { dbPath, statePath, outDir } = setUp();
+    seedScoredPosting(dbPath, { externalId: "e1" });
+    runDigest(dbPath, statePath, outDir, () => "2026-09-01T00:00:00.000Z");
+
+    seedScoredPosting(dbPath, { externalId: "e2", firstSeenAt: "2026-09-01T12:00:00.000Z" });
+    runDigest(dbPath, statePath, outDir, () => "2026-09-02T00:00:00.000Z");
+
+    const secondRun = readFileSync(join(outDir, "digest-2026-09-02.md"), "utf-8");
+    expect(secondRun).toContain("1 new posting(s)");
+  });
+
+  it("logs the output path and a summary line", () => {
+    const { dbPath, statePath, outDir } = setUp();
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    runDigest(dbPath, statePath, outDir, () => "2026-09-02T08:00:00.000Z");
+    const logged = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    logSpy.mockRestore();
+
+    expect(logged).toContain("Wrote");
+    expect(logged).toMatch(/new posting\(s\)/);
+  });
+
+  it("with no arguments, writes to the default data/out paths relative to cwd", () => {
+    const dir = tmpDir();
+    const registryPath = join(dir, "sources.json");
+    writeFileSync(registryPath, JSON.stringify([]));
+    const originalCwd = process.cwd();
+    process.chdir(dir);
+    try {
+      runInit("data/jobs.db", registryPath);
+      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      expect(() => runDigest()).not.toThrow();
+      logSpy.mockRestore();
+      expect(existsSync(join(dir, "out"))).toBe(true);
+      expect(existsSync(join(dir, "data", "digest-state.json"))).toBe(true);
+    } finally {
+      process.chdir(originalCwd);
+    }
   });
 });

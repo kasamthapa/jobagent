@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { openDb, DEFAULT_DB_PATH } from "./db/schema.js";
 import { loadRegistry, DEFAULT_REGISTRY_PATH } from "./sources/registry.js";
 import {
@@ -13,7 +15,12 @@ import { applyPoll } from "./pipeline/upsert.js";
 import { computeDedupeGroups, countDuplicates } from "./pipeline/dedupe.js";
 import { loadProfile, DEFAULT_PROFILE_PATH } from "./scoring/profile.js";
 import { scorePostings } from "./scoring/scorer.js";
+import { buildDigestData } from "./digest/build.js";
+import { renderDigestMarkdown } from "./digest/render.js";
+import { loadDigestState, saveDigestState, DEFAULT_DIGEST_STATE_PATH } from "./digest/state.js";
 import type { Market, Source } from "./sources/types.js";
+
+export const DEFAULT_OUT_DIR = "out";
 
 /** A `SourceRow` is a `Source` plus id/health columns — adapters only need the `Source` shape. */
 function toSource(row: SourceRow): Source {
@@ -210,9 +217,38 @@ export async function runScore(
   }
 }
 
-/** Stub — Phase 5 adds the digest writer. */
-export function runDigest(): void {
-  console.log("digest: not implemented yet (Phase 5 adds the digest writer).");
+/**
+ * Writes `out/digest-YYYY-MM-DD.md`: every open, scored posting first seen
+ * since the last digest run, grouped by tier (stretch first), plus a
+ * closing-soon list and a source health table. Advances the digest's
+ * last-run marker (`data/digest-state.json`) on success so the next run
+ * only reports what's new since this one.
+ */
+export function runDigest(
+  dbPath: string = DEFAULT_DB_PATH,
+  statePath: string = DEFAULT_DIGEST_STATE_PATH,
+  outDir: string = DEFAULT_OUT_DIR,
+  now: () => string = () => new Date().toISOString(),
+): void {
+  const db = openDb(dbPath);
+  try {
+    const state = loadDigestState(statePath);
+    const data = buildDigestData(db, { since: state.lastDigestAt, now });
+    const markdown = renderDigestMarkdown(data);
+
+    mkdirSync(outDir, { recursive: true });
+    const outPath = join(outDir, `digest-${data.generatedAt.slice(0, 10)}.md`);
+    writeFileSync(outPath, markdown);
+    saveDigestState({ lastDigestAt: data.generatedAt }, statePath);
+
+    console.log(`Wrote ${outPath}`);
+    console.log(
+      `${data.totalNew} new posting(s) since ${state.lastDigestAt ?? "(first run)"}, ` +
+        `${data.closingSoon.length} closing within 7 days.`,
+    );
+  } finally {
+    db.close();
+  }
 }
 
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {

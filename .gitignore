@@ -1,5 +1,8 @@
 node_modules/
 data/*.db
+data/digest-state.json
 logs/*
 !logs/.gitkeep
+out/*
+!out/.gitkeep
 .env
