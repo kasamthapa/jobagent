@@ -40,7 +40,12 @@ Docker (yet). Run the CLI with `npm run cli -- <command>`, tests with
 ## Schema summary (`src/db/schema.ts`)
 
 - **sources** — one row per configured source (`data/sources.json`), tracks
-  poll health (`last_polled_at`, `last_result_count`, `last_error`).
+  poll health (`last_polled_at`, `last_result_count`, `last_error`,
+  `consecutive_zero_polls`). `consecutive_zero_polls` increments on any poll
+  that comes back with 0 results or an error, and resets on the first poll
+  with >0 results; the digest opens with a loud warning once a source
+  crosses `ZERO_RESULT_ALERT_THRESHOLD` (3) — a silently broken
+  parser/selector is the main failure mode of this whole system.
   `market ∈ {nepal, remote}`, `kind ∈ {portal, careers, api, rss, ats}`.
 - **companies** — normalized company records, linked from `postings`.
 - **postings** — one row per posting, deduped by `(source_id, external_id)`
@@ -66,6 +71,18 @@ test using recorded fixtures** (`tests/fixtures/`) — never hit the network
 in tests. The standard for a new adapter test: after writing it, deliberately
 break the adapter and confirm the test fails for the right reason, then
 restore. A passing test that was never seen to fail proves nothing.
+
+## Networking and diagnostics
+
+Every outbound HTTP call — remote adapters' `fetchJson`/`fetchText`
+(`src/sources/adapters/shared.ts`), Nepal's `fetchHtml`
+(`src/sources/adapters/nepal-shared.ts`), and Gemini's `callGemini`
+(`src/scoring/gemini.ts`) — times out and retries once with backoff on a
+network error, a timeout, or a 429/5xx response. The first two share
+`src/net/http.ts`'s `fetchWithRetry`; Gemini has its own (quota-aware, 2s
+backoff) version since it predates it. `npm run cli -- doctor` prints a
+health report (DB integrity, `GEMINI_API_KEY` presence, per-source
+reachability) and always exits 0 — it's a diagnostic, not a gate.
 
 ## Commit conventions
 

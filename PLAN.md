@@ -268,7 +268,7 @@ markdown file.
 
 ## Phase 6 — Hardening
 
-Status: todo
+Status: done
 
 Goal: make it survivable.
 
