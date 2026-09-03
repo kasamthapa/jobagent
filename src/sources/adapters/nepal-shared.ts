@@ -11,6 +11,7 @@
 import * as cheerio from "cheerio";
 import type { Element } from "domhandler";
 import { createHash } from "node:crypto";
+import { fetchWithRetry, type FetchRetryOptions } from "../../net/http.js";
 
 const USER_AGENT =
   "Mozilla/5.0 (compatible; jobagent/0.1; personal job-search tool; +https://github.com/)";
@@ -38,12 +39,21 @@ async function throttle(host: string): Promise<void> {
   lastRequestAtByHost.set(host, Date.now());
 }
 
-/** Fetches `url` as HTML text, throttled to 1 req/sec per host. Throws with the URL and status on a non-2xx response. */
-export async function fetchHtml(url: string): Promise<string> {
+/**
+ * Fetches `url` as HTML text, throttled to 1 req/sec per host. Retries once
+ * with backoff on a timeout, network error, or 429/5xx response (see
+ * net/http.ts) — the throttle only runs once per call, before the first
+ * attempt, since a retry of the same host doesn't need to wait again on top
+ * of its own backoff. Throws with the URL and status if the final attempt is
+ * still non-2xx.
+ */
+export async function fetchHtml(url: string, opts?: FetchRetryOptions): Promise<string> {
   await throttle(new URL(url).host);
-  const res = await fetch(url, {
-    headers: { "User-Agent": USER_AGENT, Accept: "text/html,application/xhtml+xml" },
-  });
+  const res = await fetchWithRetry(
+    url,
+    { headers: { "User-Agent": USER_AGENT, Accept: "text/html,application/xhtml+xml" } },
+    opts,
+  );
   if (!res.ok) {
     throw new Error(`GET ${url} responded with HTTP ${res.status}`);
   }

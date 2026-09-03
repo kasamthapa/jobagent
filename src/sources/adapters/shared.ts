@@ -7,6 +7,7 @@
 
 import * as cheerio from "cheerio";
 import type { LocationPolicy, RawPosting } from "../types.js";
+import { fetchWithRetry, type FetchRetryOptions } from "../../net/http.js";
 
 const DEFAULT_HEADERS = {
   "User-Agent":
@@ -14,18 +15,22 @@ const DEFAULT_HEADERS = {
   Accept: "application/json, application/xml, text/xml, */*",
 };
 
-/** Fetches `url` and parses the body as JSON. Throws with the URL and status on a non-2xx response. */
-export async function fetchJson(url: string): Promise<unknown> {
-  const res = await fetch(url, { headers: DEFAULT_HEADERS });
+/**
+ * Fetches `url` and parses the body as JSON. Retries once with backoff on a
+ * timeout, network error, or 429/5xx response (see net/http.ts); throws with
+ * the URL and status if the final attempt is still non-2xx.
+ */
+export async function fetchJson(url: string, opts?: FetchRetryOptions): Promise<unknown> {
+  const res = await fetchWithRetry(url, { headers: DEFAULT_HEADERS }, opts);
   if (!res.ok) {
     throw new Error(`GET ${url} responded with HTTP ${res.status}`);
   }
   return res.json();
 }
 
-/** Fetches `url` and returns the raw body text (used for RSS/XML feeds). */
-export async function fetchText(url: string): Promise<string> {
-  const res = await fetch(url, { headers: DEFAULT_HEADERS });
+/** Fetches `url` and returns the raw body text (used for RSS/XML feeds). Same retry behavior as `fetchJson`. */
+export async function fetchText(url: string, opts?: FetchRetryOptions): Promise<string> {
+  const res = await fetchWithRetry(url, { headers: DEFAULT_HEADERS }, opts);
   if (!res.ok) {
     throw new Error(`GET ${url} responded with HTTP ${res.status}`);
   }
