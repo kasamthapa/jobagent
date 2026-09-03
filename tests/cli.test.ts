@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
-import { parseArgs, runInit, runPoll, runScore, runDigest } from "../src/cli.js";
+import { parseArgs, runInit, runPoll, runScore, runDigest, runDoctor } from "../src/cli.js";
 import type { Source } from "../src/sources/types.js";
 
 const tmpDirs: string[] = [];
@@ -37,6 +37,10 @@ describe("parseArgs", () => {
       command: "poll",
       flags: { market: "true" },
     });
+  });
+
+  it("parses the doctor command", () => {
+    expect(parseArgs(["doctor"])).toEqual({ command: "doctor", flags: {} });
   });
 
   it("throws on an unknown command", () => {
@@ -405,5 +409,53 @@ describe("runDigest", () => {
     } finally {
       process.chdir(originalCwd);
     }
+  });
+});
+
+describe("runDoctor", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete process.env.GEMINI_API_KEY;
+  });
+
+  it("prints a report and resolves without throwing, even with no sources and no API key", async () => {
+    const dir = tmpDir();
+    const dbPath = join(dir, "jobs.db");
+    const registryPath = join(dir, "sources.json");
+    writeFileSync(registryPath, JSON.stringify([]));
+    runInit(dbPath, registryPath);
+    delete process.env.GEMINI_API_KEY;
+
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await expect(runDoctor(dbPath)).resolves.toBeUndefined();
+    const logged = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    logSpy.mockRestore();
+
+    expect(logged).toContain("Doctor report:");
+    expect(logged).toContain("[OK] db integrity");
+    expect(logged).toContain("[FAIL] GEMINI_API_KEY");
+  });
+
+  it("probes each active source and reports GEMINI_API_KEY as present when set", async () => {
+    const dir = tmpDir();
+    const dbPath = join(dir, "jobs.db");
+    const registryPath = join(dir, "sources.json");
+    writeFileSync(
+      registryPath,
+      JSON.stringify([
+        { name: "remotive", market: "remote", kind: "api", url: "https://remotive.test", adapter: "remotive", active: true },
+      ]),
+    );
+    runInit(dbPath, registryPath);
+    process.env.GEMINI_API_KEY = "test-key";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 200 }));
+
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await runDoctor(dbPath);
+    const logged = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    logSpy.mockRestore();
+
+    expect(logged).toContain("[OK] GEMINI_API_KEY");
+    expect(logged).toContain("source:remotive");
   });
 });

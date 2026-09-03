@@ -18,6 +18,7 @@ import { scorePostings } from "./scoring/scorer.js";
 import { buildDigestData } from "./digest/build.js";
 import { renderDigestMarkdown } from "./digest/render.js";
 import { loadDigestState, saveDigestState, DEFAULT_DIGEST_STATE_PATH } from "./digest/state.js";
+import { runDoctorChecks, renderDoctorReport } from "./doctor.js";
 import type { Market, Source } from "./sources/types.js";
 
 export const DEFAULT_OUT_DIR = "out";
@@ -34,7 +35,7 @@ function toSource(row: SourceRow): Source {
   };
 }
 
-const COMMANDS = ["init", "poll", "score", "digest"] as const;
+const COMMANDS = ["init", "poll", "score", "digest", "doctor"] as const;
 type Command = (typeof COMMANDS)[number];
 
 export interface ParsedArgs {
@@ -251,6 +252,25 @@ export function runDigest(
   }
 }
 
+/**
+ * Prints a health report (db integrity, source reachability, GEMINI_API_KEY
+ * presence) and always exits 0 — doctor is a diagnostic, not a gate; see
+ * doctor.ts for why every individual check swallows its own failures.
+ */
+export async function runDoctor(dbPath: string = DEFAULT_DB_PATH): Promise<void> {
+  const db = openDb(dbPath);
+  try {
+    const sources = listSources(db);
+    const report = await runDoctorChecks(db, {
+      hasGeminiKey: !!process.env.GEMINI_API_KEY,
+      sources,
+    });
+    console.log(renderDoctorReport(report));
+  } finally {
+    db.close();
+  }
+}
+
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   const { command, flags } = parseArgs(argv);
   switch (command) {
@@ -265,6 +285,9 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
       break;
     case "digest":
       runDigest();
+      break;
+    case "doctor":
+      await runDoctor();
       break;
   }
 }
