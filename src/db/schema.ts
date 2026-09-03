@@ -35,7 +35,8 @@ export function createSchema(db: Database.Database): void {
       active             INTEGER NOT NULL DEFAULT 1,
       last_polled_at     TEXT,
       last_result_count  INTEGER,
-      last_error         TEXT
+      last_error         TEXT,
+      consecutive_zero_polls INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS companies (
@@ -87,6 +88,7 @@ export function createSchema(db: Database.Database): void {
   `);
 
   ensureMatchesContentHashColumn(db);
+  ensureSourcesZeroStreakColumn(db);
 
   // One row per scored posting (CLAUDE.md): enforced via a unique index
   // rather than an inline UNIQUE constraint so it can be added to a
@@ -103,5 +105,13 @@ function ensureMatchesContentHashColumn(db: Database.Database): void {
   const columns = db.prepare(`PRAGMA table_info(matches)`).all() as Array<{ name: string }>;
   if (!columns.some((c) => c.name === "content_hash")) {
     db.exec(`ALTER TABLE matches ADD COLUMN content_hash TEXT NOT NULL DEFAULT ''`);
+  }
+}
+
+/** Migrates a pre-Phase-6 `sources` table (created without `consecutive_zero_polls`) in place. */
+function ensureSourcesZeroStreakColumn(db: Database.Database): void {
+  const columns = db.prepare(`PRAGMA table_info(sources)`).all() as Array<{ name: string }>;
+  if (!columns.some((c) => c.name === "consecutive_zero_polls")) {
+    db.exec(`ALTER TABLE sources ADD COLUMN consecutive_zero_polls INTEGER NOT NULL DEFAULT 0`);
   }
 }

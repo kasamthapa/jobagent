@@ -19,6 +19,8 @@ export interface SourceRow {
   last_polled_at: string | null;
   last_result_count: number | null;
   last_error: string | null;
+  /** Consecutive polls (across the source's whole history) that returned 0 results or errored. Reset to 0 by any poll with >0 results. See `recordPollResult`. */
+  consecutive_zero_polls: number;
 }
 
 /** Inserts a source, or updates its config columns if the name already exists. */
@@ -50,7 +52,15 @@ export function getSourceByName(db: Database.Database, name: string): SourceRow 
   return db.prepare(`SELECT * FROM sources WHERE name = ?`).get(name) as SourceRow | undefined;
 }
 
-/** Records the outcome of one poll attempt against a source's health columns. */
+/**
+ * Records the outcome of one poll attempt against a source's health columns.
+ * `consecutive_zero_polls` increments whenever this poll produced no data —
+ * a successful fetch with 0 results, or an error (null resultCount) — and
+ * resets to 0 the moment a poll comes back with >0 results. The digest
+ * (Phase 6) opens with a loud warning once a source crosses the alert
+ * threshold on this streak: a source that quietly stops finding anything is
+ * the main failure mode of this whole system (CLAUDE.md).
+ */
 export function recordPollResult(
   db: Database.Database,
   sourceId: number,
@@ -59,8 +69,16 @@ export function recordPollResult(
   error: string | null,
 ): void {
   db.prepare(
-    `UPDATE sources SET last_polled_at = ?, last_result_count = ?, last_error = ? WHERE id = ?`,
-  ).run(polledAt, resultCount, error, sourceId);
+    `UPDATE sources SET
+       last_polled_at = ?,
+       last_result_count = ?,
+       last_error = ?,
+       consecutive_zero_polls = CASE
+         WHEN COALESCE(?, 0) = 0 THEN consecutive_zero_polls + 1
+         ELSE 0
+       END
+     WHERE id = ?`,
+  ).run(polledAt, resultCount, error, resultCount, sourceId);
 }
 
 /** Looks up a company by (name, market), creating it if it doesn't exist yet. Returns its id. */

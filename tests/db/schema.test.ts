@@ -119,6 +119,38 @@ describe("createSchema", () => {
     db.close();
   });
 
+  it("migrates a pre-Phase-6 sources table (no consecutive_zero_polls column) in place", () => {
+    const db = new Database(":memory:");
+    // Simulate the Phase 1-5 schema: sources with no consecutive_zero_polls column.
+    db.exec(`
+      CREATE TABLE sources (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        market TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        url TEXT,
+        adapter TEXT NOT NULL,
+        active INTEGER NOT NULL DEFAULT 1,
+        last_polled_at TEXT,
+        last_result_count INTEGER,
+        last_error TEXT
+      );
+    `);
+    db.prepare(`INSERT INTO sources (name, market, kind, adapter) VALUES ('s', 'nepal', 'portal', 'a')`).run();
+
+    createSchema(db);
+
+    const columns = (db.prepare(`PRAGMA table_info(sources)`).all() as Array<{ name: string }>).map(
+      (c) => c.name,
+    );
+    expect(columns).toContain("consecutive_zero_polls");
+    const row = db.prepare(`SELECT consecutive_zero_polls FROM sources WHERE name = 's'`).get() as {
+      consecutive_zero_polls: number;
+    };
+    expect(row.consecutive_zero_polls).toBe(0);
+    db.close();
+  });
+
   it("enforces UNIQUE(source_id, external_id) on postings", () => {
     const db = new Database(":memory:");
     createSchema(db);

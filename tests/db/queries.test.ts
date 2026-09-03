@@ -103,6 +103,48 @@ describe("recordPollResult", () => {
     expect(row.last_result_count).toBeNull();
     expect(row.last_error).toBe("boom");
   });
+
+  it("starts consecutive_zero_polls at 0 for a newly-created source", () => {
+    const db = new Database(":memory:");
+    createSchema(db);
+    upsertSource(db, remotive);
+    expect(getSourceByName(db, "remotive")!.consecutive_zero_polls).toBe(0);
+  });
+
+  it("increments consecutive_zero_polls on a poll with 0 results", () => {
+    const db = new Database(":memory:");
+    createSchema(db);
+    upsertSource(db, remotive);
+    const id = getSourceByName(db, "remotive")!.id;
+
+    recordPollResult(db, id, "t1", 0, null);
+    expect(getSourceByName(db, "remotive")!.consecutive_zero_polls).toBe(1);
+    recordPollResult(db, id, "t2", 0, null);
+    expect(getSourceByName(db, "remotive")!.consecutive_zero_polls).toBe(2);
+  });
+
+  it("increments consecutive_zero_polls on an errored poll (null result count)", () => {
+    const db = new Database(":memory:");
+    createSchema(db);
+    upsertSource(db, remotive);
+    const id = getSourceByName(db, "remotive")!.id;
+
+    recordPollResult(db, id, "t1", null, "boom");
+    recordPollResult(db, id, "t2", null, "boom again");
+    expect(getSourceByName(db, "remotive")!.consecutive_zero_polls).toBe(2);
+  });
+
+  it("resets consecutive_zero_polls to 0 the moment a poll returns >0 results", () => {
+    const db = new Database(":memory:");
+    createSchema(db);
+    upsertSource(db, remotive);
+    const id = getSourceByName(db, "remotive")!.id;
+
+    recordPollResult(db, id, "t1", 0, null);
+    recordPollResult(db, id, "t2", 0, null);
+    recordPollResult(db, id, "t3", 5, null);
+    expect(getSourceByName(db, "remotive")!.consecutive_zero_polls).toBe(0);
+  });
 });
 
 describe("getOrCreateCompany", () => {
