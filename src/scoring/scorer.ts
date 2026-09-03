@@ -1,11 +1,8 @@
 import type Database from "better-sqlite3";
-import {
-  listOpenPostingsForScoring,
-  upsertMatch,
-  type PostingForScoring,
-} from "../db/queries.js";
+import { listOpenPostingsForScoring, type PostingForScoring } from "../db/queries.js";
 import { applyRemotePenalty, scoreWithGemini, type GeminiOptions } from "./gemini.js";
 import { prefilterPosting } from "./prefilter.js";
+import { recordMatchResult } from "./record.js";
 import type { Profile } from "./types.js";
 
 export interface ScoreSummary {
@@ -84,30 +81,28 @@ async function scoreOne(
   if (prefilter.drop) {
     summary.prefilterDropped++;
     summary.tierCounts.no++;
-    upsertMatch(db, {
-      postingId: posting.id,
-      contentHash: posting.content_hash,
-      score: 0,
-      tier: "no",
-      reasoning: `Prefiltered: ${prefilter.reason}`,
-      gapsJson: JSON.stringify([]),
-      scoredAt: now(),
-    });
+    recordMatchResult(
+      db,
+      posting.id,
+      {
+        kind: "prefiltered",
+        contentHash: posting.content_hash,
+        reason: prefilter.reason ?? "prefiltered",
+      },
+      now(),
+    );
     return;
   }
 
   if (!opts.gemini) {
     summary.llmFailed++;
     summary.tierCounts.unscored++;
-    upsertMatch(db, {
-      postingId: posting.id,
-      contentHash: posting.content_hash,
-      score: null,
-      tier: null,
-      reasoning: "LLM scoring skipped: no GEMINI_API_KEY configured",
-      gapsJson: null,
-      scoredAt: now(),
-    });
+    recordMatchResult(
+      db,
+      posting.id,
+      { kind: "unscored", reason: "LLM scoring skipped: no GEMINI_API_KEY configured" },
+      now(),
+    );
     return;
   }
 
@@ -127,33 +122,22 @@ async function scoreOne(
   if (!outcome.ok) {
     summary.llmFailed++;
     summary.tierCounts.unscored++;
-    upsertMatch(db, {
-      postingId: posting.id,
-      // Deliberately not posting.content_hash: the cache-hit check above is
-      // `match_content_hash === content_hash`, so recording the real hash on
-      // a failure would make this posting look "already scored" forever and
-      // it would never be retried. An empty string never matches a real
-      // sha256 content_hash, so the next run always retries it.
-      contentHash: "",
-      score: null,
-      tier: null,
-      reasoning: `LLM scoring failed: ${outcome.error}`,
-      gapsJson: null,
-      scoredAt: now(),
-    });
+    recordMatchResult(
+      db,
+      posting.id,
+      { kind: "unscored", reason: `LLM scoring failed: ${outcome.error}` },
+      now(),
+    );
     return;
   }
 
   const penalized = applyRemotePenalty(outcome.value, posting.market);
   summary.llmScored++;
   summary.tierCounts[penalized.tier]++;
-  upsertMatch(db, {
-    postingId: posting.id,
-    contentHash: posting.content_hash,
-    score: penalized.score,
-    tier: penalized.tier,
-    reasoning: penalized.reasoning,
-    gapsJson: JSON.stringify(penalized.gaps),
-    scoredAt: now(),
-  });
+  recordMatchResult(
+    db,
+    posting.id,
+    { kind: "scored", contentHash: posting.content_hash, result: penalized },
+    now(),
+  );
 }

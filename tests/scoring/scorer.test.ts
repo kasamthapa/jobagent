@@ -124,6 +124,10 @@ describe("scorePostings", () => {
     expect(match.score).toBeNull();
     expect(match.tier).toBeNull();
     expect(match.reasoning).toMatch(/no GEMINI_API_KEY/);
+    // The bug this regresses: a keyless run must NOT cache the posting's
+    // real content_hash, or it becomes permanently unretriable — see
+    // recordMatchResult in src/scoring/record.ts.
+    expect(match.content_hash).toBe("");
   });
 
   it("is a cache hit on a second run when content_hash is unchanged, and does not call Gemini again", async () => {
@@ -173,6 +177,7 @@ describe("scorePostings", () => {
     const match = db.prepare(`SELECT * FROM matches`).get() as Record<string, unknown>;
     expect(match.tier).toBeNull();
     expect(String(match.reasoning)).toContain("429");
+    expect(match.content_hash).toBe("");
   });
 
   it("retries a previously-failed posting on the next run rather than treating it as a cache hit forever", async () => {
