@@ -292,7 +292,7 @@ Gate: `npm test` passes with every module having at least one test, and
 
 ## Phase 7 — Gap report
 
-Status: todo
+Status: done
 
 Goal: turn the tool from a filter into a career signal.
 

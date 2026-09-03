@@ -84,6 +84,19 @@ backoff) version since it predates it. `npm run cli -- doctor` prints a
 health report (DB integrity, `GEMINI_API_KEY` presence, per-source
 reachability) and always exits 0 — it's a diagnostic, not a gate.
 
+## Gap report
+
+`npm run cli -- gaps` turns the tool from a filter into a career signal: it
+looks at every `reach`-tier and high-scoring `no`-tier match (score ≥
+`HIGH_NO_SCORE_THRESHOLD`, 50 — a low-scoring `no` is usually wrong-level or
+wrong-discipline noise, not a real skill gap) from postings first seen in the
+last `GAP_LOOKBACK_DAYS` (90) days, frequency-ranks the skills in `gaps`
+across all of them, splits that ranking by market (Nepal and remote want
+different things), and for the top 5 gaps reports how many `reach` postings
+would cross into `stretch` if that one skill closed. Writes
+`out/gaps-YYYY-MM-DD.md`. Pure data assembly (`src/gaps/build.ts`) /
+rendering (`src/gaps/render.ts`) split, same as `digest`.
+
 ## Commit conventions
 
 Conventional commits: `feat:`, `fix:`, `test:`, `chore:`, `docs:`. One
