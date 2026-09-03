@@ -300,6 +300,34 @@ export function listMatchesForDigest(db: Database.Database): DigestMatchRow[] {
     .all() as DigestMatchRow[];
 }
 
+export interface GapCandidateRow {
+  posting_id: number;
+  market: Market;
+  tier: Tier;
+  score: number | null;
+  gaps_json: string | null;
+  first_seen_at: string;
+}
+
+/**
+ * Every match with tier 'reach' or 'no' whose posting was first seen on or
+ * after `sinceIso` — the raw material for `gaps` (Phase 7). Deliberately not
+ * filtered to `is_open = 1`: a gap analysis describes what the market has
+ * been asking for over the lookback window, not what's still open today.
+ */
+export function listGapCandidateMatches(db: Database.Database, sinceIso: string): GapCandidateRow[] {
+  return db
+    .prepare(
+      `SELECT p.id AS posting_id, s.market AS market, m.tier AS tier, m.score AS score,
+              m.gaps_json AS gaps_json, p.first_seen_at AS first_seen_at
+       FROM matches m
+       JOIN postings p ON p.id = m.posting_id
+       JOIN sources s ON s.id = p.source_id
+       WHERE m.tier IN ('reach', 'no') AND p.first_seen_at >= ?`,
+    )
+    .all(sinceIso) as GapCandidateRow[];
+}
+
 /** Runs `PRAGMA integrity_check` and returns its summary string (`"ok"` when healthy). */
 export function checkIntegrity(db: Database.Database): string {
   const result = db.pragma("integrity_check") as Array<{ integrity_check: string }>;

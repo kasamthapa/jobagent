@@ -19,6 +19,8 @@ import { buildDigestData } from "./digest/build.js";
 import { renderDigestMarkdown } from "./digest/render.js";
 import { loadDigestState, saveDigestState, DEFAULT_DIGEST_STATE_PATH } from "./digest/state.js";
 import { runDoctorChecks, renderDoctorReport } from "./doctor.js";
+import { buildGapsData } from "./gaps/build.js";
+import { renderGapsMarkdown } from "./gaps/render.js";
 import type { Market, Source } from "./sources/types.js";
 
 export const DEFAULT_OUT_DIR = "out";
@@ -35,7 +37,7 @@ function toSource(row: SourceRow): Source {
   };
 }
 
-const COMMANDS = ["init", "poll", "score", "digest", "doctor"] as const;
+const COMMANDS = ["init", "poll", "score", "digest", "doctor", "gaps"] as const;
 type Command = (typeof COMMANDS)[number];
 
 export interface ParsedArgs {
@@ -271,6 +273,38 @@ export async function runDoctor(dbPath: string = DEFAULT_DB_PATH): Promise<void>
   }
 }
 
+/**
+ * Writes `out/gaps-YYYY-MM-DD.md`: skills blocking the owner across every
+ * `reach` and high-scoring `no` posting from the last `GAP_LOOKBACK_DAYS`
+ * days, frequency-ranked overall and split by market, with the top 5 gaps'
+ * impact on `reach` postings if closed. Unlike `digest`, this has no
+ * "since last run" state — it's a standing snapshot of the target market,
+ * always covering the same trailing window.
+ */
+export function runGaps(
+  dbPath: string = DEFAULT_DB_PATH,
+  outDir: string = DEFAULT_OUT_DIR,
+  now: () => string = () => new Date().toISOString(),
+): void {
+  const db = openDb(dbPath);
+  try {
+    const data = buildGapsData(db, { now });
+    const markdown = renderGapsMarkdown(data);
+
+    mkdirSync(outDir, { recursive: true });
+    const outPath = join(outDir, `gaps-${data.generatedAt.slice(0, 10)}.md`);
+    writeFileSync(outPath, markdown);
+
+    console.log(`Wrote ${outPath}`);
+    console.log(
+      `Analyzed ${data.totalCandidates} candidate posting(s) since ${data.since} ` +
+        `(${data.reachCount} reach, ${data.highNoCount} high-scoring no).`,
+    );
+  } finally {
+    db.close();
+  }
+}
+
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   const { command, flags } = parseArgs(argv);
   switch (command) {
@@ -288,6 +322,9 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
       break;
     case "doctor":
       await runDoctor();
+      break;
+    case "gaps":
+      runGaps();
       break;
   }
 }

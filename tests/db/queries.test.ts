@@ -13,6 +13,7 @@ import {
   listOpenPostings,
   listOpenPostingsForScoring,
   listMatchesForDigest,
+  listGapCandidateMatches,
   upsertMatch,
   type PostingUpsert,
 } from "../../src/db/queries.js";
@@ -416,5 +417,86 @@ describe("listMatchesForDigest", () => {
     db.close();
 
     expect(rows).toHaveLength(0);
+  });
+});
+
+describe("listGapCandidateMatches", () => {
+  function seed(
+    db: Database.Database,
+    p: {
+      externalId: string;
+      market?: "nepal" | "remote";
+      tier: "safe" | "stretch" | "reach" | "no";
+      score?: number | null;
+      gapsJson?: string | null;
+      firstSeenAt?: string;
+      isOpen?: 0 | 1;
+    },
+  ): void {
+    const market = p.market ?? "remote";
+    db.prepare(
+      `INSERT INTO sources (name, market, kind, url, adapter, active)
+       VALUES (?, ?, 'api', 'https://x.test', 'a', 1)
+       ON CONFLICT(name) DO NOTHING`,
+    ).run(`src-${market}`, market);
+    const sourceId = (
+      db.prepare(`SELECT id FROM sources WHERE name = ?`).get(`src-${market}`) as { id: number }
+    ).id;
+    const firstSeenAt = p.firstSeenAt ?? "2026-08-01T00:00:00.000Z";
+    db.prepare(
+      `INSERT INTO postings (source_id, external_id, title, description, url, location_policy, first_seen_at, last_seen_at, is_open, content_hash, dedupe_key)
+       VALUES (?, ?, 'T', 'D', 'u', 'worldwide', ?, ?, ?, ?, ?)`,
+    ).run(sourceId, p.externalId, firstSeenAt, firstSeenAt, p.isOpen ?? 1, `h-${p.externalId}`, `dk-${p.externalId}`);
+    const postingId = (
+      db.prepare(`SELECT id FROM postings WHERE external_id = ?`).get(p.externalId) as { id: number }
+    ).id;
+    db.prepare(
+      `INSERT INTO matches (posting_id, content_hash, score, tier, reasoning, gaps_json, scored_at)
+       VALUES (?, ?, ?, ?, 'r', ?, '2026-08-01T00:00:00.000Z')`,
+    ).run(postingId, `h-${p.externalId}`, p.score === undefined ? 40 : p.score, p.tier, p.gapsJson ?? null);
+  }
+
+  it("includes reach and no tiers, but excludes safe and stretch", () => {
+    const db = openDb(":memory:");
+    seed(db, { externalId: "reach1", tier: "reach" });
+    seed(db, { externalId: "no1", tier: "no" });
+    seed(db, { externalId: "safe1", tier: "safe" });
+    seed(db, { externalId: "stretch1", tier: "stretch" });
+
+    const rows = listGapCandidateMatches(db, "2026-01-01T00:00:00.000Z");
+    db.close();
+
+    expect(rows.map((r) => r.tier).sort()).toEqual(["no", "reach"]);
+  });
+
+  it("excludes postings first seen before the cutoff", () => {
+    const db = openDb(":memory:");
+    seed(db, { externalId: "old", tier: "reach", firstSeenAt: "2026-01-01T00:00:00.000Z" });
+    seed(db, { externalId: "new", tier: "reach", firstSeenAt: "2026-08-15T00:00:00.000Z" });
+
+    const rows = listGapCandidateMatches(db, "2026-08-01T00:00:00.000Z");
+    db.close();
+
+    expect(rows.map((r) => r.posting_id)).toHaveLength(1);
+  });
+
+  it("includes closed postings — a gap analysis covers the window, not just what's still open", () => {
+    const db = openDb(":memory:");
+    seed(db, { externalId: "closed", tier: "reach", isOpen: 0 });
+
+    const rows = listGapCandidateMatches(db, "2026-01-01T00:00:00.000Z");
+    db.close();
+
+    expect(rows).toHaveLength(1);
+  });
+
+  it("carries market, score, and gaps_json through", () => {
+    const db = openDb(":memory:");
+    seed(db, { externalId: "r1", market: "nepal", tier: "reach", score: 55, gapsJson: '["Docker","CI/CD"]' });
+
+    const rows = listGapCandidateMatches(db, "2026-01-01T00:00:00.000Z");
+    db.close();
+
+    expect(rows[0]).toMatchObject({ market: "nepal", score: 55, gaps_json: '["Docker","CI/CD"]' });
   });
 });

@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
-import { parseArgs, runInit, runPoll, runScore, runDigest, runDoctor } from "../src/cli.js";
+import { parseArgs, runInit, runPoll, runScore, runDigest, runDoctor, runGaps } from "../src/cli.js";
 import type { Source } from "../src/sources/types.js";
 
 const tmpDirs: string[] = [];
@@ -41,6 +41,10 @@ describe("parseArgs", () => {
 
   it("parses the doctor command", () => {
     expect(parseArgs(["doctor"])).toEqual({ command: "doctor", flags: {} });
+  });
+
+  it("parses the gaps command", () => {
+    expect(parseArgs(["gaps"])).toEqual({ command: "gaps", flags: {} });
   });
 
   it("throws on an unknown command", () => {
@@ -457,5 +461,87 @@ describe("runDoctor", () => {
 
     expect(logged).toContain("[OK] GEMINI_API_KEY");
     expect(logged).toContain("source:remotive");
+  });
+});
+
+describe("runGaps", () => {
+  function setUp(): { dbPath: string; outDir: string } {
+    const dir = tmpDir();
+    const dbPath = join(dir, "jobs.db");
+    const registryPath = join(dir, "sources.json");
+    const outDir = join(dir, "out");
+    writeFileSync(
+      registryPath,
+      JSON.stringify([
+        { name: "remotive", market: "remote", kind: "api", url: "https://x.test", adapter: "remotive", active: true },
+      ]),
+    );
+    runInit(dbPath, registryPath);
+    return { dbPath, outDir };
+  }
+
+  function seedReachPosting(dbPath: string, gaps: string[]): void {
+    const db = new Database(dbPath);
+    const sourceId = (db.prepare(`SELECT id FROM sources WHERE name = 'remotive'`).get() as { id: number }).id;
+    db.prepare(
+      `INSERT INTO postings (source_id, external_id, title, description, url, location_policy, first_seen_at, last_seen_at, content_hash, dedupe_key)
+       VALUES (?, 'e1', 'Full-Stack Developer', 'Build things.', 'https://x.test/1', 'worldwide', '2026-08-15T00:00:00.000Z', '2026-08-15T00:00:00.000Z', 'h1', 'd1')`,
+    ).run(sourceId);
+    const postingId = (db.prepare(`SELECT id FROM postings WHERE external_id = 'e1'`).get() as { id: number }).id;
+    db.prepare(
+      `INSERT INTO matches (posting_id, content_hash, score, tier, reasoning, gaps_json, scored_at)
+       VALUES (?, 'h1', 40, 'reach', 'Needs Docker.', ?, '2026-08-15T00:00:00.000Z')`,
+    ).run(postingId, JSON.stringify(gaps));
+    db.close();
+  }
+
+  it("writes a non-empty out/gaps-YYYY-MM-DD.md even with no data", () => {
+    const { dbPath, outDir } = setUp();
+    runGaps(dbPath, outDir, () => "2026-09-02T08:00:00.000Z");
+
+    const outPath = join(outDir, "gaps-2026-09-02.md");
+    expect(existsSync(outPath)).toBe(true);
+    const content = readFileSync(outPath, "utf-8");
+    expect(content.length).toBeGreaterThan(0);
+    expect(content).toContain("# Skill Gap Report — 2026-09-02");
+    expect(content).toContain("nothing to report yet");
+  });
+
+  it("surfaces a gap skill from a reach-tier posting", () => {
+    const { dbPath, outDir } = setUp();
+    seedReachPosting(dbPath, ["Docker"]);
+    runGaps(dbPath, outDir, () => "2026-09-02T08:00:00.000Z");
+
+    const content = readFileSync(join(outDir, "gaps-2026-09-02.md"), "utf-8");
+    expect(content).toContain("## Top blocking skills (overall)");
+    expect(content).toContain("| Docker | 1 |");
+  });
+
+  it("logs the output path and a summary line", () => {
+    const { dbPath, outDir } = setUp();
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    runGaps(dbPath, outDir, () => "2026-09-02T08:00:00.000Z");
+    const logged = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    logSpy.mockRestore();
+
+    expect(logged).toContain("Wrote");
+    expect(logged).toMatch(/candidate posting\(s\)/);
+  });
+
+  it("with no arguments, writes to the default data/out paths relative to cwd", () => {
+    const dir = tmpDir();
+    const registryPath = join(dir, "sources.json");
+    writeFileSync(registryPath, JSON.stringify([]));
+    const originalCwd = process.cwd();
+    process.chdir(dir);
+    try {
+      runInit("data/jobs.db", registryPath);
+      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      expect(() => runGaps()).not.toThrow();
+      logSpy.mockRestore();
+      expect(existsSync(join(dir, "out"))).toBe(true);
+    } finally {
+      process.chdir(originalCwd);
+    }
   });
 });
