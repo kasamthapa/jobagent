@@ -1,4 +1,4 @@
-import type { DigestData } from "./build.js";
+import { ZERO_RESULT_ALERT_THRESHOLD, type DigestData } from "./build.js";
 
 const TIER_LABELS: Record<string, string> = {
   stretch: "Stretch",
@@ -41,6 +41,29 @@ function renderClosingSoon(data: DigestData): string {
   return lines.join("\n");
 }
 
+/**
+ * Renders a loud warning banner listing any source stuck at 0 results for
+ * `ZERO_RESULT_ALERT_THRESHOLD`+ consecutive polls — a silently broken
+ * parser/selector, the main failure mode this system is prone to
+ * (CLAUDE.md). Returns "" when nothing has crossed the threshold, so the
+ * digest stays quiet on a normal run.
+ */
+function renderSourceAlerts(data: DigestData): string {
+  const stale = data.sourceHealth.filter((s) => s.consecutiveZeroPolls >= ZERO_RESULT_ALERT_THRESHOLD);
+  if (stale.length === 0) return "";
+  const lines = [
+    `## ⚠️ SOURCE HEALTH ALERT`,
+    "",
+    `The following source(s) have returned 0 results for ${ZERO_RESULT_ALERT_THRESHOLD}+ consecutive polls — this usually means a silently broken parser/selector, not a dry market. Check them first:`,
+    "",
+  ];
+  for (const s of stale) {
+    const errorNote = s.lastError ? `, last error: ${s.lastError}` : "";
+    lines.push(`- **${s.name}** (${s.market}) — ${s.consecutiveZeroPolls} consecutive empty polls${errorNote}`);
+  }
+  return lines.join("\n");
+}
+
 function renderSourceHealth(data: DigestData): string {
   const lines = [
     `## Source health`,
@@ -64,6 +87,9 @@ function renderSourceHealth(data: DigestData): string {
 export function renderDigestMarkdown(data: DigestData): string {
   const date = data.generatedAt.slice(0, 10);
   const sections: string[] = [`# Job Digest — ${date}`, ""];
+
+  const alert = renderSourceAlerts(data);
+  if (alert) sections.push(alert, "");
 
   sections.push(
     data.since === null

@@ -5,13 +5,27 @@ import { buildDigestData, TIER_ORDER } from "../../src/digest/build.js";
 
 function seedSource(
   db: Database.Database,
-  overrides: { name?: string; market?: "nepal" | "remote"; lastPolledAt?: string | null; lastResultCount?: number | null; lastError?: string | null } = {},
+  overrides: {
+    name?: string;
+    market?: "nepal" | "remote";
+    lastPolledAt?: string | null;
+    lastResultCount?: number | null;
+    lastError?: string | null;
+    consecutiveZeroPolls?: number;
+  } = {},
 ): number {
-  const { name = "remotive", market = "remote", lastPolledAt = null, lastResultCount = null, lastError = null } = overrides;
+  const {
+    name = "remotive",
+    market = "remote",
+    lastPolledAt = null,
+    lastResultCount = null,
+    lastError = null,
+    consecutiveZeroPolls = 0,
+  } = overrides;
   const info = db
-    .prepare(`INSERT INTO sources (name, market, kind, url, adapter, active, last_polled_at, last_result_count, last_error)
-               VALUES (?, ?, 'api', 'https://x.test', 'adapter', 1, ?, ?, ?)`)
-    .run(name, market, lastPolledAt, lastResultCount, lastError);
+    .prepare(`INSERT INTO sources (name, market, kind, url, adapter, active, last_polled_at, last_result_count, last_error, consecutive_zero_polls)
+               VALUES (?, ?, 'api', 'https://x.test', 'adapter', 1, ?, ?, ?, ?)`)
+    .run(name, market, lastPolledAt, lastResultCount, lastError, consecutiveZeroPolls);
   return info.lastInsertRowid as number;
 }
 
@@ -277,6 +291,17 @@ describe("buildDigestData", () => {
       lastPolledAt: "2026-09-02T06:00:00.000Z",
       lastResultCount: 0,
       lastError: "Selector matched 0 elements",
+      consecutiveZeroPolls: 0,
     });
+  });
+
+  it("carries consecutive_zero_polls through into sourceHealth", () => {
+    const db = openDb(":memory:");
+    seedSource(db, { name: "merojob", market: "nepal", consecutiveZeroPolls: 3 });
+
+    const data = buildDigestData(db, { since: null, now: () => "2026-09-02T00:00:00.000Z" });
+    db.close();
+
+    expect(data.sourceHealth.find((s) => s.name === "merojob")?.consecutiveZeroPolls).toBe(3);
   });
 });

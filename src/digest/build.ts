@@ -40,7 +40,17 @@ export interface SourceHealthRow {
   lastPolledAt: string | null;
   lastResultCount: number | null;
   lastError: string | null;
+  /** Consecutive polls with 0 results or an error. See `recordPollResult` (db/queries.ts). */
+  consecutiveZeroPolls: number;
 }
+
+/**
+ * A source that returns nothing 3 polls running is very likely a silently
+ * broken parser/selector rather than a genuinely dry job market — CLAUDE.md
+ * calls this out as the main failure mode of the whole system, so the
+ * digest opens with a loud warning once a source crosses this line.
+ */
+export const ZERO_RESULT_ALERT_THRESHOLD = 3;
 
 export interface DigestData {
   generatedAt: string;
@@ -149,6 +159,7 @@ export function buildDigestData(db: Database.Database, opts: BuildDigestOptions)
     lastPolledAt: s.last_polled_at,
     lastResultCount: s.last_result_count,
     lastError: s.last_error,
+    consecutiveZeroPolls: s.consecutive_zero_polls,
   }));
 
   return {

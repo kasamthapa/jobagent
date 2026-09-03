@@ -121,8 +121,8 @@ describe("renderDigestMarkdown", () => {
   it("renders a source health table with last polled time, count, and error", () => {
     const data = emptyData({
       sourceHealth: [
-        { name: "remotive", market: "remote", lastPolledAt: "2026-09-02T07:00:00.000Z", lastResultCount: 12, lastError: null },
-        { name: "merojob", market: "nepal", lastPolledAt: null, lastResultCount: null, lastError: "Selector matched 0 elements" },
+        { name: "remotive", market: "remote", lastPolledAt: "2026-09-02T07:00:00.000Z", lastResultCount: 12, lastError: null, consecutiveZeroPolls: 0 },
+        { name: "merojob", market: "nepal", lastPolledAt: null, lastResultCount: null, lastError: "Selector matched 0 elements", consecutiveZeroPolls: 1 },
       ],
     });
     const md = renderDigestMarkdown(data);
@@ -134,10 +134,34 @@ describe("renderDigestMarkdown", () => {
   it("escapes pipe characters in table cells so they don't break the table", () => {
     const data = emptyData({
       sourceHealth: [
-        { name: "weird", market: "nepal", lastPolledAt: null, lastResultCount: null, lastError: "boom | broke" },
+        { name: "weird", market: "nepal", lastPolledAt: null, lastResultCount: null, lastError: "boom | broke", consecutiveZeroPolls: 0 },
       ],
     });
     const md = renderDigestMarkdown(data);
     expect(md).toContain("boom \\| broke");
+  });
+
+  it("opens with a loud warning when a source has 3+ consecutive zero-result polls", () => {
+    const data = emptyData({
+      sourceHealth: [
+        { name: "merojob", market: "nepal", lastPolledAt: "2026-09-02T00:00:00.000Z", lastResultCount: 0, lastError: null, consecutiveZeroPolls: 3 },
+      ],
+    });
+    const md = renderDigestMarkdown(data);
+    expect(md).toContain("SOURCE HEALTH ALERT");
+    expect(md).toContain("merojob");
+    expect(md).toContain("3 consecutive empty polls");
+    // "opens with" — the alert appears before the title's summary line and the source health table.
+    expect(md.indexOf("SOURCE HEALTH ALERT")).toBeLessThan(md.indexOf("## Source health"));
+  });
+
+  it("omits the alert banner when no source is at or past the threshold", () => {
+    const data = emptyData({
+      sourceHealth: [
+        { name: "merojob", market: "nepal", lastPolledAt: null, lastResultCount: 0, lastError: null, consecutiveZeroPolls: 2 },
+      ],
+    });
+    const md = renderDigestMarkdown(data);
+    expect(md).not.toContain("SOURCE HEALTH ALERT");
   });
 });
