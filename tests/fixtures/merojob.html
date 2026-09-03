@@ -1,37 +1,66 @@
 <!DOCTYPE html>
 <html>
-<head><title>IT & Telecommunication Jobs in Nepal | merojob</title></head>
+<!-- Structure mirrors merojob.com's homepage "latest jobs" feed as of
+     2026-09 (server-rendered React cards, Tailwind utility classes) — see
+     tests/sources/adapters/merojob.test.ts. The old /category/*
+     page this adapter used to target now renders its list entirely
+     client-side (0 static job links); the homepage feed is the
+     replacement source, per data/sources.json's "note" on this source.
+     Unlike the old category-page markup, these cards don't carry a
+     per-card location string. -->
+<head><title>Jobs in Nepal | merojob</title></head>
 <body>
   <nav>
     <a href="/">Home</a>
     <a href="/about-us">About Us</a>
-    <a href="/login">Login</a>
-    <a href="/user/register">Register</a>
-    <a href="/category/accounting-finance">Accounting &amp; Finance</a>
+    <a href="/jobseeker/login">Login</a>
+    <a href="/jobseeker/register">Register</a>
+    <a href="/category">Browse Jobs</a>
   </nav>
   <main>
-    <div class="job-list">
-      <div class="job-item">
-        <a href="/job/junior-frontend-developer-458213">
-          <h2>Junior Frontend Developer</h2>
-        </a>
-        <a href="/company/webtech-nepal">Webtech Nepal Pvt. Ltd.</a>
-        <p class="location">Kathmandu, Nepal</p>
-        <p class="deadline">Apply before: 2026-09-15</p>
-        <a href="/job/junior-frontend-developer-458213" class="btn">View Details</a>
-      </div>
-      <div class="job-item">
-        <a href="/job/backend-developer-nodejs-458220">
-          <h2>Backend Developer (Node.js)</h2>
-        </a>
-        <a href="/company/khalti-digital">Khalti Digital Wallet</a>
-        <p class="location">Lalitpur, Nepal</p>
-        <a href="/job/backend-developer-nodejs-458220" class="btn">View Details</a>
+    <div class="h-[80px]">
+      <div class="rounded-lg border bg-card text-card-foreground relative shadow-none h-[80px] transition-all">
+        <div class="p-2">
+          <div class="flex justify-between">
+            <div class="flex items-start space-x-3">
+              <div class="flex items-center justify-center flex-shrink-0">
+                <img alt="Webtech Nepal Pvt. Ltd." width="60" height="60" class="object-contain h-16 w-16" src="https://api.merojob.com/media/cache/webtech.jpg">
+              </div>
+              <div class="flex flex-col gap-1">
+                <a href="/employer/webtech-nepal/detail"><h3 class="font-normal text-neutral-800 text-sm line-clamp-1">Webtech Nepal Pvt. Ltd.</h3></a>
+                <ul>
+                  <li class="flex text-blue-900 font-medium items-end text-sm gap-1">
+                    <span class="mr-1">&bull;</span>
+                    <a href="/junior-frontend-developer-458213"><span class="line-clamp-1 cursor-pointer">Junior Frontend Developer</span></a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="pagination">
-      <a href="/category/it-telecommunication?page=1">1</a>
-      <a href="/category/it-telecommunication?page=2">2</a>
+    <div class="h-[80px]">
+      <div class="rounded-lg border bg-card text-card-foreground relative shadow-none h-[80px] transition-all">
+        <div class="p-2">
+          <div class="flex justify-between">
+            <div class="flex items-start space-x-3">
+              <div class="flex items-center justify-center flex-shrink-0">
+                <img alt="Khalti Digital Wallet" width="60" height="60" class="object-contain h-16 w-16" src="https://api.merojob.com/media/cache/khalti.jpg">
+              </div>
+              <div class="flex flex-col gap-1">
+                <a href="/employer/khalti-digital/detail"><h3 class="font-normal text-neutral-800 text-sm line-clamp-1">Khalti Digital Wallet</h3></a>
+                <ul>
+                  <li class="flex text-blue-900 font-medium items-end text-sm gap-1">
+                    <span class="mr-1">&bull;</span>
+                    <a href="/backend-developer-nodejs-458220"><span class="line-clamp-1 cursor-pointer">Backend Developer (Node.js)</span></a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </main>
 </body>

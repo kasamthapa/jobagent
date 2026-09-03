@@ -6,13 +6,15 @@ import { extractJobCards, fetchHtml } from "./nepal-shared.js";
  * https://merojob.com — Nepal's largest general job portal. Confirmed
  * 2026-09: its category pages (e.g. /category/it-telecommunication) now
  * render listings entirely via client-side JS — 0 job links in the static
- * HTML. The homepage does server-render a real "latest jobs" feed, but it
- * isn't filterable to IT roles, so this source is deactivated in
- * data/sources.json (see its "note") rather than pointed there. The code
- * below is unchanged and still correct for any page that does have a
- * server-rendered listing; it's the currently-configured URL that no
- * longer has one. A 0-match result is logged as a source error (per
- * CLAUDE.md) rather than crashing the whole poll.
+ * HTML. The homepage does server-render a real "latest jobs" feed, so
+ * `data/sources.json` points this source there instead. That feed isn't
+ * filtered to IT roles (it's every category mixed together) — deliberately
+ * left unfiltered rather than chasing a hidden category-filtered SSR
+ * endpoint; the Phase 4 prefilter/scorer handle the noise downstream, the
+ * same way they already handle the HN "Who's Hiring" firehose from Phase 2.
+ * A 0-match result is still logged as a source error (per CLAUDE.md) rather
+ * than crashing the whole poll, in case the homepage ever stops
+ * server-rendering too.
  */
 export const merojobAdapter: JobSource = {
   name: "merojob",

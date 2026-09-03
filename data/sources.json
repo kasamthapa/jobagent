@@ -51,10 +51,10 @@
     "name": "merojob",
     "market": "nepal",
     "kind": "portal",
-    "url": "https://merojob.com/category/it-telecommunication",
+    "url": "https://merojob.com/",
     "adapter": "merojob",
-    "active": false,
-    "note": "Deactivated 2026-09: category page now renders its job list entirely client-side (React) — 0 job links in the static HTML. The homepage does server-render a real 'latest jobs' feed with numeric-id links, but it isn't IT-filtered (mostly sales/accounting), so pointing the adapter there would ingest mostly irrelevant postings. No known server-rendered IT-category URL exists. Re-check periodically."
+    "active": true,
+    "note": "Reactivated 2026-09: the old /category/it-telecommunication URL renders client-side (0 static job links). Switched to the homepage's server-rendered 'latest jobs' feed instead — real numeric-id links, confirmed working with the existing merojob adapter, no code change needed. This feed isn't IT-filtered (mixes in every category), which is deliberate: same approach as the HN 'Who's Hiring' firehose (Phase 2) — let the Phase 4 prefilter/scorer do the filtering rather than chase a hidden category-filtered SSR endpoint."
   },
   {
     "name": "kumarijob",

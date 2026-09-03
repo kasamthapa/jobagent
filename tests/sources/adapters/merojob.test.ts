@@ -14,7 +14,12 @@ const source: Source = {
   name: "merojob",
   market: "nepal",
   kind: "portal",
-  url: "https://merojob.com/category/it-telecommunication",
+  // The old /category/* page renders its list client-side (0 static job
+  // links); the homepage's "latest jobs" feed server-renders real ones, so
+  // that's the configured URL now (see data/sources.json's "note" on this
+  // source). It's not IT-filtered — the Phase 4 prefilter/scorer handle
+  // that, same as the HN "Who's Hiring" firehose in Phase 2.
+  url: "https://merojob.com/",
   adapter: "merojob",
   active: true,
 };
@@ -31,7 +36,7 @@ afterEach(() => {
 });
 
 describe("merojobAdapter", () => {
-  it("maps job cards to RawPosting, ignoring nav chrome and pagination links", async () => {
+  it("maps job cards to RawPosting, ignoring nav chrome", async () => {
     stubFetch(200, fixture);
     const postings = await merojobAdapter.fetch(source);
 
@@ -40,8 +45,10 @@ describe("merojobAdapter", () => {
       externalId: "458213",
       title: "Junior Frontend Developer",
       companyName: "Webtech Nepal Pvt. Ltd.",
-      location: "Kathmandu",
     });
+    // The homepage feed's cards don't carry a per-card location string,
+    // unlike the old category-page markup.
+    expect(postings[0]?.location).toBeUndefined();
     expect(postings[1]?.externalId).toBe("458220");
   });
 
