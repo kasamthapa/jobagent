@@ -38,6 +38,16 @@ function buildUrl(base: string): (path: string) => string {
 }
 
 /**
+ * The search endpoint this adapter actually calls first. `source.url` alone
+ * (the bare `api/v1/` base) 404s — it's not a valid Algolia endpoint by
+ * itself — so doctor.ts's reachability probe uses this instead of the raw
+ * source URL to avoid reporting a healthy source as broken.
+ */
+export function reachabilityUrl(base: string): string {
+  return buildUrl(base)("search_by_date?tags=story,author_whoishiring&query=Who%20is%20Hiring");
+}
+
+/**
  * https://hn.algolia.com/api/v1/ — two-step: find the latest monthly "Who
  * is hiring?" thread via search, then fetch its top-level comments (each
  * one is a candidate job posting). Nested replies are discussion, not

@@ -100,6 +100,29 @@ describe("runDoctorChecks", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
+  it("probes hn-algolia's search endpoint, not its bare base url", async () => {
+    const db = openDb(":memory:");
+    upsertSource(
+      db,
+      makeSource({
+        name: "hn-whoishiring",
+        url: "https://hn.algolia.com/api/v1/",
+        adapter: "hn-algolia",
+      }),
+    );
+    const sources = db.prepare(`SELECT * FROM sources`).all() as Array<Parameters<typeof runDoctorChecks>[1]["sources"][number]>;
+    const fetchImpl = vi.fn().mockResolvedValue({ status: 200 });
+
+    const report = await runDoctorChecks(db, { hasGeminiKey: true, sources, fetchImpl });
+    db.close();
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://hn.algolia.com/api/v1/search_by_date?tags=story,author_whoishiring&query=Who%20is%20Hiring",
+      expect.anything(),
+    );
+    expect(report.checks.find((c) => c.name === "source:hn-whoishiring")?.ok).toBe(true);
+  });
+
   it("skips inactive sources entirely", async () => {
     const db = openDb(":memory:");
     upsertSource(db, makeSource({ active: false }));

@@ -10,6 +10,7 @@
 import type Database from "better-sqlite3";
 import { TABLE_NAMES } from "./db/schema.js";
 import { checkIntegrity, listTableNames, type SourceRow } from "./db/queries.js";
+import { reachabilityUrl as hnAlgoliaReachabilityUrl } from "./sources/adapters/hn-algolia.js";
 
 export interface DoctorCheck {
   name: string;
@@ -70,10 +71,16 @@ async function checkSourceReachable(
     return { name, ok: true, detail: "no url configured (skipped)" };
   }
 
+  // hn-algolia's bare base URL (source.url) 404s on its own — it's only a
+  // valid endpoint once a path is appended, which is what the adapter
+  // itself always does. Probe the same URL the adapter fetches first so
+  // this doesn't show a false red flag for a source that's working fine.
+  const probeUrl = source.adapter === "hn-algolia" ? hnAlgoliaReachabilityUrl(source.url) : source.url;
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetchImpl(source.url, { method: "GET", signal: controller.signal });
+    const res = await fetchImpl(probeUrl, { method: "GET", signal: controller.signal });
     // A 4xx here often just means "no User-Agent"/"needs a real client", which
     // the adapter itself already sends — this is a reachability probe, not a
     // full adapter run, so only 5xx/network failure counts as unreachable.
