@@ -26,6 +26,17 @@ describe("runDoctorChecks", () => {
     expect(dbCheck?.ok).toBe(true);
   });
 
+  it("reports db integrity failing when a core table is missing", async () => {
+    const db = openDb(":memory:");
+    db.exec(`DROP TABLE matches`);
+    const report = await runDoctorChecks(db, { hasGeminiKey: true, sources: [] });
+    db.close();
+
+    const dbCheck = report.checks.find((c) => c.name === "db integrity");
+    expect(dbCheck?.ok).toBe(false);
+    expect(dbCheck?.detail).toBe("missing table(s): matches");
+  });
+
   it("reports the GEMINI_API_KEY check based on hasGeminiKey", async () => {
     const db = openDb(":memory:");
     const withKey = await runDoctorChecks(db, { hasGeminiKey: true, sources: [] });

@@ -300,6 +300,20 @@ export function listMatchesForDigest(db: Database.Database): DigestMatchRow[] {
     .all() as DigestMatchRow[];
 }
 
+/** Runs `PRAGMA integrity_check` and returns its summary string (`"ok"` when healthy). */
+export function checkIntegrity(db: Database.Database): string {
+  const result = db.pragma("integrity_check") as Array<{ integrity_check: string }>;
+  return result.map((r) => r.integrity_check).join("; ");
+}
+
+/** Every table name currently present in the database, per `sqlite_master`. */
+export function listTableNames(db: Database.Database): string[] {
+  const rows = db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table'`).all() as Array<{
+    name: string;
+  }>;
+  return rows.map((r) => r.name);
+}
+
 /** Row counts for every table, keyed by table name. Used by `cli.ts init` to report progress. */
 export function countTables(db: Database.Database): Record<(typeof TABLE_NAMES)[number], number> {
   const counts = {} as Record<(typeof TABLE_NAMES)[number], number>;

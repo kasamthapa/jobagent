@@ -9,7 +9,7 @@
 
 import type Database from "better-sqlite3";
 import { TABLE_NAMES } from "./db/schema.js";
-import type { SourceRow } from "./db/queries.js";
+import { checkIntegrity, listTableNames, type SourceRow } from "./db/queries.js";
 
 export interface DoctorCheck {
   name: string;
@@ -36,16 +36,12 @@ const DEFAULT_REACHABILITY_TIMEOUT_MS = 5_000;
 /** `PRAGMA integrity_check` plus presence of all four core tables. */
 function checkDbIntegrity(db: Database.Database): DoctorCheck {
   try {
-    const result = db.pragma("integrity_check") as Array<{ integrity_check: string }>;
-    const summary = result.map((r) => r.integrity_check).join("; ");
+    const summary = checkIntegrity(db);
     if (summary !== "ok") {
       return { name: "db integrity", ok: false, detail: `PRAGMA integrity_check: ${summary}` };
     }
 
-    const tables = db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table'`).all() as Array<{
-      name: string;
-    }>;
-    const tableNames = new Set(tables.map((t) => t.name));
+    const tableNames = new Set(listTableNames(db));
     const missing = TABLE_NAMES.filter((t) => !tableNames.has(t));
     if (missing.length > 0) {
       return { name: "db integrity", ok: false, detail: `missing table(s): ${missing.join(", ")}` };
