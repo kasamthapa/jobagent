@@ -11,8 +11,26 @@ const REMOTE_PENALTY = 15;
 /** Gemini can hang with no error on a slow/dropped connection — abort rather than block the run. */
 const DEFAULT_TIMEOUT_MS = 30_000;
 
-/** Backoff before the single retry in `scoreWithGemini`, per PLAN.md Phase 6. */
+/** Initial backoff before a retry in `scoreWithGemini`, per PLAN.md Phase 6. Doubles each subsequent retry, capped by `MAX_RETRY_BACKOFF_MS`. */
 const RETRY_BACKOFF_MS = 2_000;
+
+/** Ceiling on any single retry backoff — see `MAX_TOTAL_MS`. */
+const MAX_RETRY_BACKOFF_MS = 30_000;
+
+/** Attempts per posting (1 initial + retries) before giving up. */
+const MAX_ATTEMPTS = 3;
+
+/**
+ * Hard wall-clock budget for scoring one posting, first attempt to giving
+ * up entirely — enforced regardless of how many retries are still
+ * available. Growing backoff between a handful of retries should still
+ * finish in well under two minutes; without this ceiling, a pathological
+ * combination of per-attempt timeouts and backoff can stretch one
+ * posting's scoring across hours, which is exactly what made an unattended
+ * `scripts/daily.sh` cron run hang overnight instead of failing fast. See
+ * logs/decisions.md.
+ */
+const MAX_TOTAL_MS = 90_000;
 
 /**
  * Gemini's free tier caps at 10 requests/minute; default to 8 to leave
@@ -163,10 +181,15 @@ function describeGeminiError(err: unknown): string {
 
 /**
  * Scores one posting with Gemini, validating the response against
- * `llmResponseSchema`. Retries once, after a short backoff, on any failure
- * (timeout, network error, HTTP error, bad JSON, schema mismatch); if the
- * retry also fails, logs which posting failed and returns the failure
- * reason — the caller records it in `reasoning` and moves on to the next
+ * `llmResponseSchema`. Retries up to `MAX_ATTEMPTS - 1` times on any
+ * failure (timeout, network error, HTTP error, bad JSON, schema mismatch),
+ * waiting an exponentially growing backoff (capped at `MAX_RETRY_BACKOFF_MS`)
+ * between attempts. The whole loop is also bounded by `MAX_TOTAL_MS` of
+ * wall-clock time from the first attempt — hit that ceiling and scoring
+ * gives up immediately regardless of retries remaining, rather than
+ * sleeping through a backoff that can no longer matter. If every attempt
+ * fails, logs which posting failed and returns the failure reason — the
+ * caller records it via `recordMatchResult` and moves on to the next
  * posting rather than blocking the whole run.
  */
 export async function scoreWithGemini(
@@ -175,17 +198,24 @@ export async function scoreWithGemini(
   opts: GeminiOptions,
 ): Promise<GeminiScoreOutcome> {
   const prompt = buildScoringPrompt(posting, profile);
+  const startedAt = Date.now();
   let lastError: unknown;
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
       const raw = await callGemini(prompt, opts);
       const parsed: unknown = JSON.parse(stripFences(raw));
       return { ok: true, value: llmResponseSchema.parse(parsed) };
     } catch (err) {
       lastError = err;
-      if (attempt < 2) {
-        await delay(RETRY_BACKOFF_MS, opts.delayImpl);
-      }
+      const elapsedMs = Date.now() - startedAt;
+      const remainingMs = MAX_TOTAL_MS - elapsedMs;
+      if (attempt >= MAX_ATTEMPTS || remainingMs <= 0) break;
+      const backoffMs = Math.min(
+        RETRY_BACKOFF_MS * 2 ** (attempt - 1),
+        MAX_RETRY_BACKOFF_MS,
+        remainingMs,
+      );
+      await delay(backoffMs, opts.delayImpl);
     }
   }
   const message = describeGeminiError(lastError);

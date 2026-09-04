@@ -14,6 +14,11 @@
  * network-level failure that survives every retry rejects. Callers (shared.ts
  * / nepal-shared.ts) decide how to turn a non-ok Response into an error, same
  * as before this module existed.
+ *
+ * Every backoff wait — the default, an explicit `backoffMs`, or a
+ * server-supplied `Retry-After` — is capped at `MAX_BACKOFF_MS` (30s) so a
+ * misbehaving host can never turn one retry into an unattended multi-hour
+ * sleep.
  */
 
 export interface FetchRetryOptions {
@@ -36,6 +41,15 @@ export interface FetchRetryOptions {
 const DEFAULT_TIMEOUT_MS = 15_000;
 const DEFAULT_BACKOFF_MS = 300;
 const DEFAULT_RETRIES = 1;
+/**
+ * Hard ceiling on any single backoff wait, including a server-supplied
+ * `Retry-After`. Without this, a host that sends an oversized (or
+ * malicious/misconfigured) `Retry-After` — seconds, hours, whatever a
+ * number-shaped header value implies — turns one retry into an
+ * effectively unattended multi-hour sleep. See the daily.sh hang incident
+ * (logs/decisions.md).
+ */
+const MAX_BACKOFF_MS = 30_000;
 
 /** Thrown when an attempt is aborted for taking longer than `timeoutMs`, on the final attempt. */
 export class FetchTimeoutError extends Error {
@@ -89,7 +103,7 @@ export async function fetchWithRetry(
       if (isLastAttempt || res.ok || !isRetryableStatus(res.status)) {
         return res;
       }
-      await delay(retryAfterMs(res) ?? backoffMs, opts.delayImpl);
+      await delay(Math.min(retryAfterMs(res) ?? backoffMs, MAX_BACKOFF_MS), opts.delayImpl);
     } catch (err) {
       const error = controller.signal.aborted ? new FetchTimeoutError(url, timeoutMs) : err;
       if (isLastAttempt) throw error;

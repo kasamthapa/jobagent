@@ -181,7 +181,7 @@ describe("scoreWithGemini", () => {
     expect(result).toMatchObject({ ok: true, value: { score: 60 } });
   });
 
-  it("returns a failure outcome after two failed attempts rather than throwing", async () => {
+  it("returns a failure outcome after exhausting all retries rather than throwing", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(geminiResponse("still not json"));
     const result = await scoreWithGemini(posting, profile, {
       apiKey: "key",
@@ -189,7 +189,7 @@ describe("scoreWithGemini", () => {
       delayImpl: noDelay,
       rateLimiter: noRateLimit,
     });
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
     expect(result.ok).toBe(false);
   });
 
@@ -206,7 +206,7 @@ describe("scoreWithGemini", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("times out on a hanging request, retries once, and reports a timeout error rather than hanging the run", async () => {
+  it("times out on a hanging request, retries, and reports a timeout error rather than hanging the run", async () => {
     const fetchImpl = vi.fn(
       (_url: string, init?: RequestInit) =>
         new Promise<Response>((_resolve, reject) => {
@@ -225,9 +225,38 @@ describe("scoreWithGemini", () => {
     });
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error).toMatch(/timed out/);
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
     expect(consoleError).toHaveBeenCalledWith(expect.stringMatching(/timed out/));
     consoleError.mockRestore();
+  });
+
+  it("gives up within the wall-clock ceiling instead of retrying forever with growing backoff", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchImpl = vi.fn().mockRejectedValue(new Error("network down"));
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      let outcome: Awaited<ReturnType<typeof scoreWithGemini>> | undefined;
+      void scoreWithGemini(posting, profile, {
+        apiKey: "key",
+        fetchImpl,
+        rateLimiter: noRateLimit,
+      }).then((r) => {
+        outcome = r;
+      });
+
+      // The capped, doubling backoff between MAX_ATTEMPTS retries sums to a
+      // few seconds — nowhere near the 90s wall-clock ceiling, let alone the
+      // hours an uncapped exponential backoff would need. If the retry loop
+      // had no ceiling, this would still be unresolved here.
+      await vi.advanceTimersByTimeAsync(10_000);
+
+      expect(outcome).toMatchObject({ ok: false });
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
+      consoleError.mockRestore();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("reports a rate-limit failure that includes the HTTP status", async () => {

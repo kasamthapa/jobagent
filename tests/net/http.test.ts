@@ -60,6 +60,18 @@ describe("fetchWithRetry", () => {
     expect(delayImpl).toHaveBeenCalledWith(2000);
   });
 
+  it("caps an oversized Retry-After header at the max backoff ceiling instead of sleeping for hours", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(false, 429, { "retry-after": "36000" })) // 10 hours
+      .mockResolvedValueOnce(jsonResponse(true, 200));
+    const delayImpl = vi.fn().mockResolvedValue(undefined);
+
+    await fetchWithRetry("https://x.test", {}, { fetchImpl, delayImpl });
+
+    expect(delayImpl).toHaveBeenCalledWith(30_000);
+  });
+
   it("retries once on a network-level rejection then succeeds", async () => {
     const fetchImpl = vi
       .fn()

@@ -184,10 +184,11 @@ describe("scorePostings", () => {
     insertPosting();
     const fetchImpl = vi
       .fn()
-      // Both attempts of the first scorePostings run fail (retry included)...
+      // Every attempt of the first scorePostings run fails (all retries included)...
       .mockResolvedValueOnce({ ok: false, status: 429 })
       .mockResolvedValueOnce({ ok: false, status: 429 })
-      // ...then the retry on the second run succeeds.
+      .mockResolvedValueOnce({ ok: false, status: 429 })
+      // ...then the first attempt on the second run succeeds.
       .mockResolvedValueOnce(geminiResponse({ score: 70, tier: "stretch", reasoning: "Good fit.", gaps: [] }));
     const gemini = { apiKey: "key", fetchImpl, delayImpl: noDelay, rateLimiter: noRateLimit };
 
@@ -196,7 +197,7 @@ describe("scorePostings", () => {
 
     const second = await scorePostings(db, { profile, gemini });
 
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
     expect(second).toMatchObject({ cacheHits: 0, cacheMisses: 1, llmScored: 1 });
     const match = db.prepare(`SELECT * FROM matches`).get() as Record<string, unknown>;
     expect(match.tier).toBe("stretch");
