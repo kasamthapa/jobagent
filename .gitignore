@@ -6,3 +6,6 @@ logs/*
 out/*
 !out/.gitkeep
 .env
+scripts/cron-wrapper.sh
+data/*.db-shm
+data/*.db-wal
